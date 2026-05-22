@@ -432,7 +432,7 @@ tr.tot-row td{font-weight:600;border-top:2px solid var(--border)!important}
 
     <div class="r2">
       <div>
-        <label class="ml">Quantità</label>
+        <label class="ml" id="mQtyLabel">Quantità</label>
         <input type="number" class="mi" id="mQty" placeholder="Es. 10" step="any">
       </div>
       <div>
@@ -530,7 +530,7 @@ tr.tot-row td{font-weight:600;border-top:2px solid var(--border)!important}
             <th class="sortable" onclick="sortTbl('pr',2)">Broker<span class="si"></span></th>
             <th class="sortable num" onclick="sortTbl('pr',3)">Qtà Venduta<span class="si"></span></th>
             <th class="sortable num" onclick="sortTbl('pr',4)">P&amp;L Lordo <span style="font-weight:400;opacity:.6;font-size:8px">solo prezzo</span><span class="si"></span></th>
-            <th class="sortable num" onclick="sortTbl('pr',5)">Comm. Vendita<span class="si"></span></th>
+            <th class="sortable num" onclick="sortTbl('pr',5)">Commissioni Totali <span style="font-weight:400;opacity:.6;font-size:8px">acq.+vend.</span><span class="si"></span></th>
             <th class="sortable num" onclick="sortTbl('pr',6)">Tasse<span class="si"></span></th>
             <th class="sortable num" onclick="sortTbl('pr',7)">P&amp;L Netto <span style="font-weight:400;opacity:.6;font-size:8px">tutti i costi</span><span class="si"></span></th>
             <th class="sortable num" onclick="sortTbl('pr',8)">% Lordo<span class="si"></span></th>
@@ -668,15 +668,15 @@ tr.tot-row td{font-weight:600;border-top:2px solid var(--border)!important}
 let T=[
   {id:1, data:'2024-03-15',tipo:'BUY',   strumento:'iShares MSCI World ETF',  isin:'IE00B4L5Y983',broker:'Fineco',        val:'EUR',qty:30,   prezzo:189.4, comm:9,  tasse:0},
   {id:2, data:'2024-06-10',tipo:'BUY',   strumento:'Vanguard FTSE All-World', isin:'IE00B3RBWM25',broker:'DEGIRO',        val:'EUR',qty:25,   prezzo:98.2,  comm:7,  tasse:0},
-  {id:3, data:'2024-10-01',tipo:'DIV',   strumento:'iShares MSCI World ETF',  isin:'IE00B4L5Y983',broker:'Fineco',        val:'EUR',qty:null, prezzo:62,    comm:0,  tasse:16.12},
+  {id:3, data:'2024-10-01',tipo:'DIV',   strumento:'iShares MSCI World ETF',  isin:'IE00B4L5Y983',broker:'Fineco',        val:'EUR',qty:30,   prezzo:2.0667,comm:0,  tasse:16.12},
   {id:4, data:'2024-01-20',tipo:'BUY',   strumento:'BTP 2030',                isin:'IT0005494239',broker:'Fineco',        val:'EUR',qty:10000,prezzo:0.982, comm:15, tasse:0},
-  {id:5, data:'2024-06-01',tipo:'CED',   strumento:'BTP 2030',                isin:'IT0005494239',broker:'Fineco',        val:'EUR',qty:null, prezzo:217.5, comm:0,  tasse:26.1},
-  {id:6, data:'2024-12-01',tipo:'CED',   strumento:'BTP 2030',                isin:'IT0005494239',broker:'Fineco',        val:'EUR',qty:null, prezzo:217.5, comm:0,  tasse:26.1},
+  {id:5, data:'2024-06-01',tipo:'CED',   strumento:'BTP 2030',                isin:'IT0005494239',broker:'Fineco',        val:'EUR',qty:1,    prezzo:217.5, comm:0,  tasse:26.1},
+  {id:6, data:'2024-12-01',tipo:'CED',   strumento:'BTP 2030',                isin:'IT0005494239',broker:'Fineco',        val:'EUR',qty:1,    prezzo:217.5, comm:0,  tasse:26.1},
   {id:7, data:'2024-09-05',tipo:'BUY',   strumento:'Apple Inc.',              isin:'US0378331005',broker:'DEGIRO',        val:'USD',qty:15,   prezzo:172.4, comm:8,  tasse:0},
-  {id:8, data:'2024-11-15',tipo:'DIV',   strumento:'Apple Inc.',              isin:'US0378331005',broker:'DEGIRO',        val:'USD',qty:null, prezzo:12,    comm:0,  tasse:3.12},
-  {id:9, data:'2025-05-15',tipo:'DIV',   strumento:'Apple Inc.',              isin:'US0378331005',broker:'DEGIRO',        val:'USD',qty:null, prezzo:14.5,  comm:0,  tasse:3.77},
+  {id:8, data:'2024-11-15',tipo:'DIV',   strumento:'Apple Inc.',              isin:'US0378331005',broker:'DEGIRO',        val:'USD',qty:15,   prezzo:0.80,  comm:0,  tasse:3.12},
+  {id:9, data:'2025-05-15',tipo:'DIV',   strumento:'Apple Inc.',              isin:'US0378331005',broker:'DEGIRO',        val:'USD',qty:15,   prezzo:0.9667,comm:0,  tasse:3.77},
   {id:10,data:'2025-07-10',tipo:'SELL',  strumento:'Vanguard FTSE All-World', isin:'IE00B3RBWM25',broker:'DEGIRO',        val:'EUR',qty:10,   prezzo:118.5, comm:7,  tasse:62},
-  {id:11,data:'2025-09-20',tipo:'DIV',   strumento:'iShares MSCI World ETF',  isin:'IE00B4L5Y983',broker:'Fineco',        val:'EUR',qty:null, prezzo:74,    comm:0,  tasse:19.24},
+  {id:11,data:'2025-09-20',tipo:'DIV',   strumento:'iShares MSCI World ETF',  isin:'IE00B4L5Y983',broker:'Fineco',        val:'EUR',qty:30,   prezzo:2.4667,comm:0,  tasse:19.24},
 
 ];
 let nid=13;
@@ -737,16 +737,19 @@ function calcPF(){
       const p=pos[k];
       if(p&&p.qty>0){
         const sq=Math.min(t.qty||0, p.qty);
-        // FIX #2: Lordo = pura variazione prezzo, zero costi
+        // P&L Lordo: pura variazione di prezzo, zero costi
         const gl = sq * t.prezzo - sq * p.pmc;
-        // Netto = include comm_buy proporzionali (via pmcFull) + comm_sell + tasse
-        const nl = sq * t.prezzo - sq * p.pmcFull - (t.comm||0) - (t.tasse||0);
+        // Commissioni proporzionali di acquisto per le sq quote vendute
+        const co_buy_prop = sq * (p.pmcFull - p.pmc);
+        // P&L Netto: lordo - comm_buy_prop - comm_sell - tasse
+        const nl = gl - co_buy_prop - (t.comm||0) - (t.tasse||0);
         const capV = sq * p.pmc;
         if(!rea[k])rea[k]={isin:p.isin||t.isin,strumento:p.strumento||t.strumento,
           broker:p.broker||t.broker,qv:0,gl:0,co:0,ta:0,nl:0,capV:0};
         rea[k].qv  += sq;
         rea[k].gl  += gl;
-        rea[k].co  += (t.comm||0);
+        // co = comm_buy_proporzionali + comm_sell  →  Lordo - co - Tasse = Netto ✓
+        rea[k].co  += co_buy_prop + (t.comm||0);
         rea[k].ta  += (t.tasse||0);
         rea[k].nl  += nl;
         rea[k].capV+= capV;
@@ -775,7 +778,7 @@ function calcM(){
     let a=0;
     if(t.tipo==='BUY')  a=-((t.qty||0)*t.prezzo+(t.comm||0));
     else if(t.tipo==='SELL') a=(t.qty||0)*t.prezzo-(t.comm||0)-(t.tasse||0);
-    else if(t.tipo==='DIV'||t.tipo==='CED') a=t.prezzo-(t.tasse||0);
+    else if(t.tipo==='DIV'||t.tipo==='CED') a=(t.qty||1)*t.prezzo-(t.tasse||0);
     if(a!==0) cfs.push({a,d}); // FIX #7: skip zero-amount flows
   });
   if(vf>0) cfs.push({a:vf, d:df});
@@ -797,8 +800,14 @@ function calcM(){
       ta_cg     += (t.tasse||0);
     }
     co+=(t.comm||0); ta+=(t.tasse||0);
-    if(t.tipo==='DIV'){dl+=(t.prezzo||0);rd+=(t.tasse||0);dn+=(t.prezzo||0)-(t.tasse||0);ta_rit+=(t.tasse||0);}
-    if(t.tipo==='CED'){cl+=(t.prezzo||0);rc+=(t.tasse||0);cn+=(t.prezzo||0)-(t.tasse||0);ta_rit+=(t.tasse||0);}
+    if(t.tipo==='DIV'){
+      const lordo=(t.qty||1)*(t.prezzo||0);
+      dl+=lordo; rd+=(t.tasse||0); dn+=lordo-(t.tasse||0); ta_rit+=(t.tasse||0);
+    }
+    if(t.tipo==='CED'){
+      const lordo=(t.qty||1)*(t.prezzo||0);
+      cl+=lordo; rc+=(t.tasse||0); cn+=lordo-(t.tasse||0); ta_rit+=(t.tasse||0);
+    }
   });
 
   const base = (vi||0)+cap;
@@ -886,7 +895,7 @@ function navScrollTo(id,btn){
 function renderCash(){
   const totIn  =T.filter(t=>t.tipo==='BUY').reduce((s,t)=>s+(t.qty||0)*t.prezzo+(t.comm||0),0);
   const totSell=T.filter(t=>t.tipo==='SELL').reduce((s,t)=>s+(t.qty||0)*t.prezzo-(t.comm||0)-(t.tasse||0),0);
-  const totInc =T.filter(t=>t.tipo==='DIV'||t.tipo==='CED').reduce((s,t)=>s+(t.prezzo||0)-(t.tasse||0),0);
+  const totInc =T.filter(t=>t.tipo==='DIV'||t.tipo==='CED').reduce((s,t)=>s+(t.qty||1)*(t.prezzo||0)-(t.tasse||0),0);
   const rientri=totSell+totInc;
   const netto  =rientri-totIn;
   const nc=netto>=0?'positive':'negative';
@@ -936,8 +945,19 @@ function onModalTipoChange(){
   const isInc=tipo==='DIV'||tipo==='CED';
   document.getElementById('mStrWrap').style.display=isSell?'none':'block';
   document.getElementById('mStrSellWrap').style.display=isSell?'block':'none';
-  document.getElementById('mPrezzoLabel').textContent=isInc?'Importo lordo':'Prezzo';
   document.getElementById('mPmcBadge').style.display='none';
+  const pl=document.getElementById('mPrezzoLabel');
+  const ql=document.getElementById('mQtyLabel');
+  if(isInc&&tipo==='DIV'){
+    if(pl)pl.textContent='Dividendo per quota';
+    if(ql)ql.textContent='N° quote';
+  } else if(isInc&&tipo==='CED'){
+    if(pl)pl.textContent='Cedola per unità';
+    if(ql)ql.textContent='N° unità';
+  } else {
+    if(pl)pl.textContent=isSell?'Prezzo vendita':'Prezzo acquisto';
+    if(ql)ql.textContent='Quantità';
+  }
   if(isSell)_fillSellDD();
 }
 
@@ -1149,7 +1169,7 @@ function renderPR(){
   // Sort
   const sp=_sort.pr;
   if(sp.col!==null){
-    const prKeys=[r=>r.strumento,r=>r.isin,r=>r.broker,r=>r.qv,r=>r.gl,r=>r.co,r=>r.ta,r=>r.nl,r=>r.capV>0?r.nl/r.capV:null];
+    const prKeys=[r=>r.strumento,r=>r.isin,r=>r.broker,r=>r.qv,r=>r.gl,r=>r.co,r=>r.ta,r=>r.nl,r=>r.capV>0?r.gl/r.capV:null];
     const key=prKeys[sp.col];
     rows.sort((a,b)=>_cmp(key(a),key(b),sp.dir));
   }
@@ -1159,7 +1179,7 @@ function renderPR(){
     const isUtile=r.nl>=0;
     const badge=`<span class="pnl-badge ${isUtile?'utile':'perdita'}">${isUtile?'UTILE':'PERDITA'}</span>`;
     const lbadge=r.gl>=0?`<span class="pnl-badge utile">UTILE</span>`:`<span class="pnl-badge perdita">PERDITA</span>`;
-    const pct=r.capV>0?r.nl/r.capV:null;
+    const pct=r.capV>0?r.gl/r.capV:null;
     const pctStr=pct!==null?`<span style="font-size:10px;font-weight:700;color:${pct>=0?'var(--accent)':'var(--red)'}">${fp(pct)}</span>`:'—';
     return`<tr>
     <td><strong>${r.strumento}</strong></td>
@@ -1177,7 +1197,7 @@ function renderPR(){
     <td class="num td-comm" style="font-weight:700">${fn(tc,2,'€ ')}</td>
     <td class="num td-tax"  style="font-weight:700">${fn(tt,2,'€ ')}</td>
     <td class="num td-pnl ${tn>=0?'pos':'neg'}" style="font-weight:700">${fs(tn)}<span class="pnl-badge ${tn>=0?'utile':'perdita'}">${tn>=0?'UTILE':'PERDITA'}</span></td>
-    <td class="num" style="font-weight:700;color:${tnPct!==null?(tnPct>=0?'var(--accent)':'var(--red)'):'inherit'}">${tnPct!==null?fp(tnPct):'—'}</td>
+    <td class="num" style="font-weight:700;color:${tlPct!==null?(tlPct>=0?'var(--accent)':'var(--red)'):'inherit'}">${tlPct!==null?fp(tlPct):'—'}</td>
   </tr>`;
   _applyIcons('prTable',_sort.pr);
 }
@@ -1186,7 +1206,7 @@ function renderPR(){
 function flNetTo(t){
   if(t.tipo==='BUY')  return-((t.qty||0)*t.prezzo+(t.comm||0));
   if(t.tipo==='SELL') return (t.qty||0)*t.prezzo-(t.comm||0)-(t.tasse||0);
-  if(t.tipo==='DIV'||t.tipo==='CED') return t.prezzo-(t.tasse||0);
+  if(t.tipo==='DIV'||t.tipo==='CED') return (t.qty||1)*t.prezzo-(t.tasse||0);
   return 0;
 }
 function renderTX(){
@@ -1220,7 +1240,7 @@ function renderTX(){
       <td class="td-broker">${t.broker}</td>
       <td class="td-val">${t.val}</td>
       <td class="num">${t.qty!==null&&t.qty!==undefined?fn(t.qty,t.qty<100?2:0):'—'}</td>
-      <td class="num">${fn(t.prezzo)}</td>
+      <td class="num">${fn(t.prezzo,4)}</td>
       <td class="num td-comm">${t.comm?fn(t.comm):'—'}</td>
       <td class="num td-tax">${t.tasse?fn(t.tasse):'—'}</td>
       <td class="num td-pnl ${fc}">${fs2}</td>
@@ -1355,8 +1375,13 @@ function closeEditModal(){
   document.getElementById('editModalOverlay').classList.remove('open');
 }
 function onEditTipoChange(){
-  const isInc=document.getElementById('eTipo').value==='DIV'||document.getElementById('eTipo').value==='CED';
-  document.getElementById('ePrezzoLabel').textContent=isInc?'Importo lordo':'Prezzo';
+  const tipo=document.getElementById('eTipo').value;
+  const isDiv=tipo==='DIV', isCed=tipo==='CED';
+  const pl=document.getElementById('ePrezzoLabel');
+  if(isDiv) pl.textContent='Dividendo per quota';
+  else if(isCed) pl.textContent='Cedola per unità';
+  else if(tipo==='SELL') pl.textContent='Prezzo vendita';
+  else pl.textContent='Prezzo acquisto';
 }
 function saveEditRow(){
   const id    = parseInt(document.getElementById('eId').value);
@@ -1414,7 +1439,7 @@ function importXLSX(inp){
       const iVa=ci(['val.','val','valuta','currency']),iQt=ci(['quantità','quantita','qty','quantity']);
       const iPr=ci(['prezzo','price']),iCo=ci(['comm.','comm','commissioni']),iTa=ci(['tasse','tax','taxes']);
       if(iDa<0||iTi<0||iSt<0||iPr<0){showToast('Colonne obbligatorie mancanti','err');return;}
-      let imp=0,sal=0;const nuove=[];
+      let imp=0,sal=0;const nuove=[],oldWarn=[];
       for(let r=1;r<rows.length;r++){
         const row=rows[r];if(!row||row.every(c=>c===''))continue;
         let ds='',dr=row[iDa];
@@ -1428,13 +1453,31 @@ function importXLSX(inp){
         const isin=iIs>=0?String(row[iIs]||'').trim():'',broker=iBr>=0?String(row[iBr]||'').trim():'';
         const val=iVa>=0?String(row[iVa]||'EUR').trim():'EUR';
         const qty=iQt>=0?(parseFloat(String(row[iQt]||'').replace(',','.'))||null):null;
-        const comm=iCo>=0?(parseFloat(String(row[iCo]||'0').replace(',','.'))||0):0;
-        const tasse=iTa>=0?(parseFloat(String(row[iTa]||'0').replace(',','.'))||0):0;
-        if(T.some(t=>t.data===ds&&t.tipo===tipo&&t.strumento===strumento&&t.prezzo===prezzo)){sal++;continue;}
+        const comm0=iCo>=0?(parseFloat(String(row[iCo]||'0').replace(',','.'))||0):0;
+        const tasse0=iTa>=0?(parseFloat(String(row[iTa]||'0').replace(',','.'))||0):0;
+
+        // FIX: Intesa Sanpaolo e alcune banche mettono la ritenuta d'acconto
+        // su DIV/CED nella colonna Comm. invece di Tasse — la spostiamo automaticamente
+        let comm  = comm0;
+        let tasse = tasse0;
+        if((tipo==='DIV'||tipo==='CED') && tasse0===0 && comm0>0){
+          tasse = comm0;
+          comm  = 0;
+        }
+
+        // Evita duplicati esatti
+        if(T.some(t=>t.data===ds&&t.tipo===tipo&&t.strumento===strumento&&Math.abs(t.prezzo-prezzo)<0.0001)){sal++;continue;}
+
+        // Avviso per transazioni molto vecchie
+        if(parseInt(ds.slice(0,4)) < 2010) oldWarn.push(`${ds} ${tipo} ${strumento} (prezzo ${prezzo})`);
+
         nuove.push({id:nid++,data:ds,tipo,strumento,isin,broker,val,qty,prezzo,comm,tasse});imp++;
       }
       if(nuove.length){pushHistory();T=[...T,...nuove].sort((a,b)=>a.data.localeCompare(b.data));render();markUnsaved();}
       showToast(imp>0?`✓ Importati ${imp}${sal>0?' · '+sal+' saltati':''}`:`Nessun movimento (${sal} saltati)`,imp>0?'ok':'err');
+      if(oldWarn.length){
+        setTimeout(()=>showToast(`⚠ ${oldWarn.length} moviment${oldWarn.length>1?'i':'o'} prima del 2010 trovat${oldWarn.length>1?'i':'o'} — possono distorcere XIRR/ROI se il periodo è "Tutto". Imposta Val. Iniziale o filtra per data.`,'err'),2000);
+      }
     }catch(err){showToast('Errore: '+err.message,'err');console.error(err);}
     inp.value='';
   };

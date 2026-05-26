@@ -457,6 +457,7 @@ body{min-height:100vh}
   <button class="nav-tab" onclick="navScrollTo('secIncome',this)">Income</button>
   <button class="nav-tab" onclick="navScrollTo('secPF',this)">Portafoglio</button>
   <button class="nav-tab" onclick="navScrollTo('secTX',this)">Movimenti</button>
+  <button class="nav-tab" onclick="navScrollTo('secVAL',this)">Valorizzazioni</button>
 </nav>
 
 <div class="main">
@@ -832,12 +833,12 @@ body{min-height:100vh}
     </div>
   </div>
   <div id="budgetKPI" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px"></div>
-  <div style="background:#fff;border:1px solid #e5e3dc;border-radius:10px;padding:16px;margin-bottom:18px">
+  <div style="background:var(--surface);border:1px solid #e5e3dc;border-radius:10px;padding:16px;margin-bottom:18px">
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#888;margin-bottom:12px">Entrate vs Uscite mensili</div>
     <div id="budgetChart" style="display:flex;align-items:flex-end;gap:6px;height:100px"></div>
   </div>
   <!-- Pannello modifica voce -->
-  <div id="budgetEditPanel" style="display:none;background:#fff;border:1.5px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:16px">
+  <div id="budgetEditPanel" style="display:none;background:var(--surface);border:1.5px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div>
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Modifica voce</div>
@@ -1124,11 +1125,14 @@ function calcPF(){
 function calcM(){
   const {from,to}=gFT();
   const vf=gv('valoreFinale'), vi=gv('valoreIniziale');
-  const fil=T.filter(t=>{const d=pd(t.data);return d>=from&&d<=to;});
+  // Bug fix 1,2,3: leggi broker globale e filtra T
+  const gBroker=(document.getElementById('gBroker')||{}).value||'';
+  const Tf = gBroker ? T.filter(t=>t.broker===gBroker) : T;
+  const fil=Tf.filter(t=>{const d=pd(t.data);return d>=from&&d<=to;});
 
   function portfolioValueAt(date){
     const pos2={};
-    for(const t of [...T].filter(t=>pd(t.data)<date).sort((a,b)=>a.data.localeCompare(b.data))){
+    for(const t of [...Tf].filter(t=>pd(t.data)<date).sort((a,b)=>a.data.localeCompare(b.data))){
       const k=pkey(t);
       if(t.tipo==='BUY'){
         if(!pos2[k]) pos2[k]={qty:0,pmc:0};
@@ -1174,9 +1178,9 @@ function calcM(){
   const anni=Math.max((to-from)/(365.25*24*3600*1000),1/12);
   const yld=cap>0?(dn+cn)/cap/anni:null;
 
-  // Realized P&L filtrato per periodo — stessa logica di renderPR ma usa gFT
+  // Realized P&L filtrato per periodo E per broker
   const pos2={}, rea2={};
-  for(const t of [...T].sort((a,b)=>a.data.localeCompare(b.data))){
+  for(const t of [...Tf].sort((a,b)=>a.data.localeCompare(b.data))){
     const k=pkey(t);
     if(t.tipo==='BUY'){
       if(!pos2[k])pos2[k]={isin:t.isin,strumento:t.strumento,qty:0,pmc:0,pmcFull:0,broker:t.broker};
@@ -1204,7 +1208,7 @@ function calcM(){
   const realCapV=Object.values(rea2).reduce((s,r)=>s+r.capV,0);
   const realHas =Object.keys(rea2).length>0;
 
-  return {xv,rn,rl,cap,ven,co,co_op,ta,ta_cg,ta_rit,dc,yld,anni,dn,dl,rd,cn,cl,rc,vf,fil,viEff,vfEff,realGL,realNL,realTa,realCapV,realHas};
+  return {xv,rn,rl,cap,ven,co,co_op,ta,ta_cg,ta_rit,dc,yld,anni,dn,dl,rd,cn,cl,rc,vf,fil,viEff,vfEff,realGL,realNL,realTa,realCapV,realHas,gBroker};
 }
 
 // ── SORT ENGINE ───────────────────────────────────
@@ -1360,6 +1364,10 @@ function render(){
 
 function renderKPI(m){
   const xc=m.xv>0?'positive':m.xv<0?'negative':'';
+  // Improvement 1: mostra badge se filtro broker attivo
+  const brokerBadge=m.gBroker?`<span style="display:inline-block;margin-left:10px;background:var(--accent-light);color:var(--accent);font-size:10px;font-weight:600;padding:2px 10px;border-radius:99px;vertical-align:middle">🏦 ${m.gBroker}</span>`:'';
+  const subtitleEl=document.querySelector('.subtitle');
+  if(subtitleEl) subtitleEl.innerHTML='XIRR · ROI · Dividendi · Portafoglio Attivo'+brokerBadge;
   // Usa i valori filtrati per periodo calcolati in calcM
   const realPNL   =m.realNL;
   const realGL    =m.realGL;
@@ -2694,14 +2702,20 @@ function _updateGlobalBrokerSel(){
   sel.innerHTML='<option value="">Tutti</option>'+bks.map(b=>'<option value="'+b+'"'+(b===cur?' selected':'')+'>'+b+'</option>').join('');
 }
 
+function setBudgetYear(y){
+  _budgetYear=parseInt(y);
+  renderBudget();
+}
+
 function syncSectionDates(){
   const f=document.getElementById('dateFrom').value, t=document.getElementById('dateTo').value;
   prD.f=f; prD.t=t; incD.f=f; incD.t=t; tx.da=f; tx.db=t;
   ['prDf','incDf','fTXDa'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=f;});
   ['prDt','incDt','fTXDb'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});
-  // Sincronizza filtri data snap valorizzazioni
+  // Sincronizza filtri data snap valorizzazioni e ridisegna
   const da=document.getElementById('fSnapDa'), a=document.getElementById('fSnapA');
   if(da) da.value=f; if(a) a.value=t;
+  renderSnaps();
 }
 
 // ── INIT ──────────────────────────────────────────
@@ -3275,7 +3289,7 @@ function editBCell(rowId, mi, td){
   inp.type='number'; inp.step='0.01'; inp.min='0';
   inp.value = cur!==null ? cur : '';
   inp.placeholder = '0';
-  inp.style.cssText='width:72px;padding:4px 6px;font-size:11px;font-family:var(--mono);border:2px solid var(--accent);border-radius:5px;outline:none;background:#fff;color:var(--text-primary);text-align:right;display:block;box-sizing:border-box';
+  inp.style.cssText='width:72px;padding:4px 6px;font-size:11px;font-family:var(--mono);border:2px solid var(--accent);border-radius:5px;outline:none;background:var(--surface);color:var(--text-primary);text-align:right;display:block;box-sizing:border-box';
   if(span) span.replaceWith(inp);
   else td.appendChild(inp);
   inp.focus(); inp.select();

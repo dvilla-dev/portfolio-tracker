@@ -2762,6 +2762,10 @@ setTheme(localStorage.getItem(LS_THEME)||'light');
       if(tkEl) tkEl.focus();
       showToast('Inserisci il Personal Access Token per caricare i dati','');
     }, 400);
+  } else if(tok && gid){
+    // Token e GistID già in localStorage → carica sempre all'avvio
+    setBkStatus('','Caricamento dati aggiornati dal Gist…');
+    setTimeout(()=>loadGist(), 600);
   } else if(sat){
     setBkStatus('ok','Ultimo salvataggio: '+sat, gurl||undefined);
   } else {

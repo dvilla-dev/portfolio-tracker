@@ -1789,6 +1789,8 @@ async function saveGist(){
     localStorage.setItem(LS_GIST_ID,gist.id); localStorage.setItem(LS_GIST_URL,gist.html_url);
     const ts=new Date().toLocaleString('it-IT'); localStorage.setItem(LS_SAVED,ts); _unsaved=false;
     document.getElementById('ghGistId').value=gist.id;
+    // Aggiorna URL con gistId per uso su GitHub Pages
+    try{ window.history.replaceState(null,'',window.location.pathname+'?gist='+gist.id); }catch(e){}
     setBkStatus('ok','Salvato '+ts,gist.html_url); showToast(isNew?'✓ Gist creato':'✓ Gist aggiornato','ok');
   }catch(e){setBkStatus('err','Errore: '+e.message);showToast('GitHub error: '+e.message,'err');}
   setBtnBusy('btnGhSave',false,'↑ Salva');
@@ -2726,11 +2728,40 @@ document.getElementById('valoreFinale').value='50000';
 });
 setTheme(localStorage.getItem(LS_THEME)||'light');
 (function initBackup(){
-  const tok=localStorage.getItem(LS_TOKEN), gid=localStorage.getItem(LS_GIST_ID), gurl=localStorage.getItem(LS_GIST_URL), sat=localStorage.getItem(LS_SAVED);
+  // Leggi token e gistId da localStorage O dai parametri URL (es. ?gist=abc123&token=xyz)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlGist = urlParams.get('gist');
+  const urlToken = urlParams.get('token');
+
+  let tok = urlToken || localStorage.getItem(LS_TOKEN);
+  let gid = urlGist  || localStorage.getItem(LS_GIST_ID);
+  const gurl = localStorage.getItem(LS_GIST_URL);
+  const sat  = localStorage.getItem(LS_SAVED);
+
+  // Se trovati da URL, salvali subito in localStorage per le sessioni future
+  if(urlToken){ localStorage.setItem(LS_TOKEN, urlToken); tok=urlToken; }
+  if(urlGist) { localStorage.setItem(LS_GIST_ID, urlGist); gid=urlGist; }
+
   if(tok) document.getElementById('ghToken').value=tok;
   if(gid) document.getElementById('ghGistId').value=gid;
-  if(sat) setBkStatus('ok','Ultimo salvataggio: '+sat,gurl||undefined);
-  else setBkStatus('','Nessun backup GitHub ancora');
+
+  // Se c'è gistId da URL, carica automaticamente il backup
+  if(urlGist && tok){
+    setBkStatus('','Caricamento automatico da URL…');
+    setTimeout(()=>loadGist(), 800);
+  } else if(sat){
+    setBkStatus('ok','Ultimo salvataggio: '+sat, gurl||undefined);
+  } else {
+    setBkStatus('','Nessun backup GitHub ancora');
+  }
+
+  // Aggiorna l'URL della pagina con il gistId per facilitare la condivisione
+  if(gid && !urlGist){
+    try{
+      const newUrl = window.location.pathname + '?gist=' + gid;
+      window.history.replaceState(null,'',newUrl);
+    }catch(e){}
+  }
 })();
 // ── BUDGET DATA ────────────────────────────────────
 // Structure: B[year][rowId] = [gen,feb,mar,apr,mag,giu,lug,ago,set,ott,nov,dic]

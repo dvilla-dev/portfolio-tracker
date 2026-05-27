@@ -104,7 +104,7 @@ tr.tot-row td{font-weight:600;border-top:2px solid var(--border)!important}
 .pos-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--blue);vertical-align:middle}
 .badge{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:500;padding:2px 6px;border-radius:4px;letter-spacing:.04em;white-space:nowrap}
 .badge-BUY{background:var(--blue-light);color:var(--blue)}.badge-SELL{background:var(--red-light);color:var(--red)}
-.badge-DIV{background:var(--accent-light);color:var(--accent)}.badge-CED{background:var(--purple-light);color:var(--purple)}
+.badge-DIV{background:var(--accent-light);color:var(--accent)}.badge-CED{background:var(--purple-light);color:var(--purple)}.badge-RCAP{background:rgba(234,179,8,.15);color:#a16207}
 .empty{padding:30px;text-align:center;color:var(--text-muted);font-size:13px}
 .pmc-badge{display:none;font-family:var(--mono);font-size:10px;color:var(--accent);padding:4px 10px;background:var(--accent-light);border-radius:4px;white-space:nowrap;border:1px solid #bbf7d0}
 .btn-add{font-family:var(--sans);font-size:11px;font-weight:600;padding:5px 14px;background:var(--text-primary);color:#fff;border:none;border-radius:5px;cursor:pointer;transition:opacity .1s}
@@ -383,7 +383,7 @@ body{min-height:100vh}
       <div><label class="ml">Tipo</label>
         <select class="mi" id="mTipo" onchange="onModalTipoChange()">
           <option value="BUY">BUY</option><option value="SELL">SELL</option>
-          <option value="DIV">DIV</option><option value="CED">CED</option>
+          <option value="DIV">DIV</option><option value="CED">CED</option><option value="RCAP">RCAP</option>
         </select>
       </div>
     </div>
@@ -392,6 +392,12 @@ body{min-height:100vh}
       <input type="text" class="mi" id="mStr" placeholder="Es. iShares MSCI World…" autocomplete="off"
         oninput="acFilter()" onkeydown="acKey(event)" onblur="setTimeout(()=>closeAc(),150)">
       <div class="ac-list" id="acList"></div>
+    </div>
+    <!-- Picker dal portafoglio per DIV/CED/RCAP -->
+    <div id="mStrIncWrap" style="display:none;margin-top:4px">
+      <select class="mi" id="mStrInc" onchange="fillModalFromPFInc()" style="font-size:11px;color:var(--text-muted)">
+        <option value="">↗ Seleziona dal portafoglio attivo (opzionale)…</option>
+      </select>
     </div>
     <div id="mStrSellWrap" style="display:none">
       <select class="mi" id="mStrSell" onchange="fillModalFromPF()">
@@ -432,7 +438,7 @@ body{min-height:100vh}
       <div><label class="ml">Tipo</label>
         <select class="mi" id="eTipo" onchange="onEditTipoChange()">
           <option value="BUY">BUY</option><option value="SELL">SELL</option>
-          <option value="DIV">DIV</option><option value="CED">CED</option>
+          <option value="DIV">DIV</option><option value="CED">CED</option><option value="RCAP">RCAP</option>
         </select>
       </div>
     </div>
@@ -595,6 +601,9 @@ body{min-height:100vh}
               <th class="sortable num" onclick="sortTbl('pf',6)">Quantità<span class="si"></span></th>
               <th class="sortable num" onclick="sortTbl('pf',7)">PMC<span class="si"></span></th>
               <th class="sortable num" onclick="sortTbl('pf',8)">Valore Investito<span class="si"></span></th>
+              <th class="sortable num" onclick="sortTbl('pf',9)" style="color:var(--blue)">Prezzo Attuale<span class="si"></span></th>
+              <th class="sortable num" onclick="sortTbl('pf',10)" style="color:var(--blue)">Valore Mercato<span class="si"></span></th>
+              <th class="sortable num" onclick="sortTbl('pf',11)" style="color:var(--blue)">U/P Latente<span class="si"></span></th>
             </tr>
             <tr class="frow">
               <th><input type="text" placeholder="strumento…" oninput="pf.s=this.value;renderPF()"></th>
@@ -606,6 +615,9 @@ body{min-height:100vh}
               <th><input type="text" placeholder="qtà…" oninput="pf.q=this.value;renderPF()"></th>
               <th><input type="text" placeholder="pmc…" oninput="pf.p=this.value;renderPF()"></th>
               <th><input type="text" placeholder="investito…" oninput="pf.inv=this.value;renderPF()"></th>
+              <th></th>
+              <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="pfBody"></tbody>
@@ -655,7 +667,7 @@ body{min-height:100vh}
             </tr>
             <tr class="frow">
               <th></th>
-              <th><select id="fTXTipo" onchange="tx.ti=this.value;renderTX()"><option value="">tipo…</option><option value="BUY">BUY</option><option value="SELL">SELL</option><option value="DIV">DIV</option><option value="CED">CED</option></select></th>
+              <th><select id="fTXTipo" onchange="tx.ti=this.value;renderTX()"><option value="">tipo…</option><option value="BUY">BUY</option><option value="SELL">SELL</option><option value="DIV">DIV</option><option value="CED">CED</option><option value="RCAP">RCAP</option></select></th>
               <th><input type="text" placeholder="strumento…" oninput="tx.st=this.value;renderTX()"></th>
               <th><input type="text" placeholder="ISIN…" oninput="tx.is=this.value;renderTX()"></th>
               <th><select id="fTXBroker" onchange="tx.br=this.value;document.getElementById('gBroker').value=this.value;renderTX()"><option value="">broker…</option></select></th>
@@ -1097,7 +1109,7 @@ function calcPF(){
   for(const t of [...T].sort((a,b)=>a.data.localeCompare(b.data))){
     const k=pkey(t);
     if(t.tipo==='BUY'){
-      if(!pos[k]) pos[k]={isin:t.isin,strumento:t.strumento,qty:0,pmc:0,pmcFull:0,val:t.val||'EUR',broker:t.broker,firstBuy:t.data,lastBuy:t.data};
+      if(!pos[k]) pos[k]={isin:t.isin,strumento:t.strumento,qty:0,pmc:0,pmcFull:0,val:t.val||'EUR',broker:t.broker,firstBuy:t.data,lastBuy:t.data,rcapTot:0};
       const p=pos[k], bq=t.qty||0, tot=p.qty+bq;
       if(tot>0&&bq>0){
         p.pmc     = (p.pmc*p.qty    + t.prezzo*bq         ) / tot;
@@ -1106,6 +1118,16 @@ function calcPF(){
       p.qty=tot; p.strumento=t.strumento; p.broker=t.broker;
       if(t.data < p.firstBuy) p.firstBuy=t.data;
       if(t.data > p.lastBuy)  p.lastBuy =t.data;
+    }
+    // RCAP: riduce PMC della posizione (rimborso per quota)
+    if(t.tipo==='RCAP'){
+      const p=pos[k];
+      if(p&&p.qty>0){
+        const rimPerQuota=t.prezzo||0; // prezzo = rimborso per singola quota
+        p.pmc     = Math.max(0, p.pmc     - rimPerQuota);
+        p.pmcFull = Math.max(0, p.pmcFull - rimPerQuota);
+        p.rcapTot = (p.rcapTot||0) + rimPerQuota * p.qty;
+      }
     }
     if(t.tipo==='SELL'){
       const p=pos[k];
@@ -1145,6 +1167,10 @@ function calcM(){
         if(tot>0&&bq>0) p.pmc=(p.pmc*p.qty+t.prezzo*bq)/tot;
         p.qty=tot;
       }
+      if(t.tipo==='RCAP'){
+        const p=pos2[k];
+        if(p&&p.qty>0) p.pmc=Math.max(0,p.pmc-(t.prezzo||0));
+      }
       if(t.tipo==='SELL'){
         const p=pos2[k]; if(p&&p.qty>0) p.qty=Math.max(0,p.qty-(t.qty||0));
       }
@@ -1162,23 +1188,25 @@ function calcM(){
     if(t.tipo==='BUY')  a=-((t.qty||0)*t.prezzo+(t.comm||0));
     else if(t.tipo==='SELL') a=(t.qty||0)*t.prezzo-(t.comm||0)-(t.tasse||0);
     else if(t.tipo==='DIV'||t.tipo==='CED') a=(t.qty||1)*t.prezzo-(t.tasse||0);
+    else if(t.tipo==='RCAP') a=(t.qty||0)*t.prezzo; // rimborso capitale: positivo, no tasse
     if(a!==0) cfs.push({a,d});
   });
   if(vfEff>0) cfs.push({a:vfEff, d:to});
   cfs.sort((a,b)=>a.d-b.d);
   const xv=(cfs.some(c=>c.a>0)&&cfs.some(c=>c.a<0))?xirr(cfs):null;
 
-  let cap=0,ven=0,ven_lordo=0,co=0,co_op=0,ta=0,ta_cg=0,ta_rit=0,dn=0,dl=0,rd=0,cn=0,cl=0,rc=0;
+  let cap=0,ven=0,ven_lordo=0,co=0,co_op=0,ta=0,ta_cg=0,ta_rit=0,dn=0,dl=0,rd=0,cn=0,cl=0,rc=0,rcapTot=0;
   fil.forEach(t=>{
     if(t.tipo==='BUY'){cap+=(t.qty||0)*t.prezzo+(t.comm||0); co_op+=(t.comm||0);}
     if(t.tipo==='SELL'){ven+=(t.qty||0)*t.prezzo-(t.comm||0)-(t.tasse||0); ven_lordo+=(t.qty||0)*t.prezzo; co_op+=(t.comm||0); ta_cg+=(t.tasse||0);}
     co+=(t.comm||0); ta+=(t.tasse||0);
     if(t.tipo==='DIV'){const l=(t.qty||1)*(t.prezzo||0); dl+=l; rd+=(t.tasse||0); dn+=l-(t.tasse||0); ta_rit+=(t.tasse||0);}
     if(t.tipo==='CED'){const l=(t.qty||1)*(t.prezzo||0); cl+=l; rc+=(t.tasse||0); cn+=l-(t.tasse||0); ta_rit+=(t.tasse||0);}
+    if(t.tipo==='RCAP'){rcapTot+=(t.qty||0)*(t.prezzo||0);}  // totale rimborsi, escluso da DIV/CED
   });
   const base=(viEff||0)+cap;
-  const rn=base>0?((vfEff||0)+ven+dn+cn-base)/base:null;
-  const rl=base>0?((vfEff||0)+ven_lordo+dl+cl-base)/base:null;
+  const rn=base>0?((vfEff||0)+ven+dn+cn+rcapTot-base)/base:null;
+  const rl=base>0?((vfEff||0)+ven_lordo+dl+cl+rcapTot-base)/base:null;
   const dc=cap>0?co_op/cap:0;
   const anni=Math.max((to-from)/(365.25*24*3600*1000),1/12);
   const yld=cap>0?(dn+cn)/cap/anni:null;
@@ -1192,6 +1220,14 @@ function calcM(){
       const p=pos2[k],bq=t.qty||0,tot=p.qty+bq;
       if(tot>0&&bq>0){p.pmc=(p.pmc*p.qty+t.prezzo*bq)/tot;p.pmcFull=(p.pmcFull*p.qty+t.prezzo*bq+(t.comm||0))/tot;}
       p.qty=tot;
+    }
+    // RCAP riduce il PMC anche nel calcolo del P&L realizzato
+    if(t.tipo==='RCAP'){
+      const p=pos2[k];
+      if(p&&p.qty>0){
+        p.pmc=Math.max(0,p.pmc-(t.prezzo||0));
+        p.pmcFull=Math.max(0,p.pmcFull-(t.prezzo||0));
+      }
     }
     if(t.tipo==='SELL'){
       const d=pd(t.data);
@@ -1213,7 +1249,7 @@ function calcM(){
   const realCapV=Object.values(rea2).reduce((s,r)=>s+r.capV,0);
   const realHas =Object.keys(rea2).length>0;
 
-  return {xv,rn,rl,cap,ven,co,co_op,ta,ta_cg,ta_rit,dc,yld,anni,dn,dl,rd,cn,cl,rc,vf,fil,viEff,vfEff,realGL,realNL,realTa,realCapV,realHas,gBroker};
+  return {xv,rn,rl,cap,ven,co,co_op,ta,ta_cg,ta_rit,dc,yld,anni,dn,dl,rd,cn,cl,rc,rcapTot,vf,fil,viEff,vfEff,realGL,realNL,realTa,realCapV,realHas,gBroker};
 }
 
 // ── SORT ENGINE ───────────────────────────────────
@@ -1275,15 +1311,50 @@ function toggleAddModal(){
 }
 function onModalTipoChange(){
   const tipo=document.getElementById('mTipo').value;
-  const isSell=tipo==='SELL', isInc=tipo==='DIV'||tipo==='CED';
+  const isSell=tipo==='SELL', isInc=tipo==='DIV'||tipo==='CED'||tipo==='RCAP', isBuy=tipo==='BUY';
   document.getElementById('mStrWrap').style.display=isSell?'none':'block';
   document.getElementById('mStrSellWrap').style.display=isSell?'block':'none';
   document.getElementById('mPmcBadge').style.display='none';
+  // Picker portafoglio: per DIV/CED/RCAP e BUY (mediazione)
+  const incWrap=document.getElementById('mStrIncWrap');
+  if(incWrap) incWrap.style.display=(isInc||isBuy)?'block':'none';
+  if(isInc||isBuy) _fillIncDD(isBuy);
   const pl=document.getElementById('mPrezzoLabel'), ql=document.getElementById('mQtyLabel');
   if(tipo==='DIV'){if(pl)pl.textContent='Dividendo per quota';if(ql)ql.textContent='N° quote';}
   else if(tipo==='CED'){if(pl)pl.textContent='Cedola per unità';if(ql)ql.textContent='N° unità';}
+  else if(tipo==='RCAP'){if(pl)pl.textContent='Rimborso per quota (€)';if(ql)ql.textContent='N° quote possedute';}
   else{if(pl)pl.textContent=isSell?'Prezzo vendita':'Prezzo acquisto';if(ql)ql.textContent='Quantità';}
   if(isSell) _fillSellDD();
+}
+
+function _fillIncDD(isBuy=false){
+  const {pos}=calcPF();
+  const sel=document.getElementById('mStrInc'); if(!sel) return;
+  const cur=sel.value;
+  const open=Object.values(pos).filter(p=>p.qty>0.0001).sort((a,b)=>a.strumento.localeCompare(b.strumento));
+  const placeholder=isBuy?'↗ Media su posizione esistente (opzionale)…':'↗ Seleziona dal portafoglio attivo…';
+  sel.innerHTML=`<option value="">${placeholder}</option>`+
+    open.map(p=>`<option value="${p.isin||p.strumento}|${p.broker||''}">${p.strumento}${p.isin?' · '+p.isin:''} · PMC €${fn(p.pmc,4)} · ${fn(p.qty,4)} qt.</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+function fillModalFromPFInc(){
+  const sel=document.getElementById('mStrInc'); if(!sel||!sel.value) return;
+  const tipo=document.getElementById('mTipo').value;
+  const isBuy=tipo==='BUY';
+  const [key,broker]=sel.value.split('|');
+  const {pos}=calcPF();
+  const p=Object.values(pos).find(p=>(p.isin===key||p.strumento===key)&&(p.broker||'')===(broker||''));
+  if(!p) return;
+  document.getElementById('mStr').value=p.strumento;
+  document.getElementById('mISIN').value=p.isin||'';
+  const bSel=document.getElementById('mBroker'); if(bSel&&p.broker) bSel.value=p.broker;
+  // Per BUY: compila solo nome/ISIN/broker, non la qty (l'utente inserisce il nuovo acquisto)
+  // Per DIV/CED/RCAP: compila anche la qty (quote possedute)
+  if(!isBuy){
+    const raw=p.qty.toFixed(4);
+    document.getElementById('mQty').value=raw;
+  }
 }
 function _fillSellDD(){
   const {pos}=calcPF(), sel=document.getElementById('mStrSell');
@@ -1306,7 +1377,17 @@ function fillModalFromPF(){
 }
 function addRowModal(){
   const tipo=document.getElementById('mTipo').value, isSell=tipo==='SELL';
-  const strumento=isSell?(document.getElementById('mStrSell').selectedOptions[0]?.text?.split('·')[0]?.trim()||''):document.getElementById('mStr').value.trim();
+  let strumento=isSell
+    ?(document.getElementById('mStrSell').selectedOptions[0]?.text?.split('·')[0]?.trim()||'')
+    :document.getElementById('mStr').value.trim();
+  // Fallback: se mStr vuoto ma picker selezionato, usa il nome dal picker
+  if(!strumento){
+    const incSel=document.getElementById('mStrInc');
+    if(incSel&&incSel.value){
+      const opt=incSel.selectedOptions[0];
+      if(opt) strumento=opt.text.split('·')[0].trim();
+    }
+  }
   const data=document.getElementById('mData').value;
   const isin=document.getElementById('mISIN').value.trim();
   const broker=document.getElementById('mBroker').value.trim();
@@ -1323,6 +1404,7 @@ function addRowModal(){
   ['mStr','mISIN','mBroker','mQty','mPrezzo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('mComm').value='0'; document.getElementById('mTasse').value='0';
   document.getElementById('mStrSell').value=''; document.getElementById('mPmcBadge').style.display='none';
+  const incSel=document.getElementById('mStrInc'); if(incSel) incSel.value='';
   render(); markUnsaved(); syncBrokersFromT(); showToast('✓ '+tipo+': '+strumento,'ok'); toggleAddModal();
 }
 
@@ -1408,17 +1490,21 @@ function renderIncome(m){
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">'+
     '<div class="kpi-card" style="border-top:2px solid var(--accent)"><div class="kpi-label">Dividendi</div>'+
     '<div style="display:flex;gap:24px;margin-top:8px;flex-wrap:wrap">'+
-    '<div><div class="kpi-sub">Netti</div><div class="kpi-value positive" style="font-size:16px">\u20ac '+fn(m.dn)+'</div></div>'+
-    '<div><div class="kpi-sub">Lordi</div><div class="kpi-value" style="font-size:16px">\u20ac '+fn(m.dl)+'</div></div>'+
-    '<div><div class="kpi-sub">Ritenute</div><div class="kpi-value negative" style="font-size:16px">\u20ac '+fn(m.rd)+'</div></div>'+
+    '<div><div class="kpi-sub">Netti</div><div class="kpi-value positive" style="font-size:16px">€ '+fn(m.dn)+'</div></div>'+
+    '<div><div class="kpi-sub">Lordi</div><div class="kpi-value" style="font-size:16px">€ '+fn(m.dl)+'</div></div>'+
+    '<div><div class="kpi-sub">Ritenute</div><div class="kpi-value negative" style="font-size:16px">€ '+fn(m.rd)+'</div></div>'+
     '</div></div>'+
     '<div class="kpi-card" style="border-top:2px solid var(--purple)"><div class="kpi-label">Cedole</div>'+
     '<div style="display:flex;gap:24px;margin-top:8px;flex-wrap:wrap">'+
-    '<div><div class="kpi-sub">Nette</div><div class="kpi-value positive" style="font-size:16px">\u20ac '+fn(m.cn)+'</div></div>'+
-    '<div><div class="kpi-sub">Lorde</div><div class="kpi-value" style="font-size:16px">\u20ac '+fn(m.cl)+'</div></div>'+
-    '<div><div class="kpi-sub">Ritenute</div><div class="kpi-value negative" style="font-size:16px">\u20ac '+fn(m.rc)+'</div></div>'+
+    '<div><div class="kpi-sub">Nette</div><div class="kpi-value positive" style="font-size:16px">€ '+fn(m.cn)+'</div></div>'+
+    '<div><div class="kpi-sub">Lorde</div><div class="kpi-value" style="font-size:16px">€ '+fn(m.cl)+'</div></div>'+
+    '<div><div class="kpi-sub">Ritenute</div><div class="kpi-value negative" style="font-size:16px">€ '+fn(m.rc)+'</div></div>'+
     '</div></div>'+
-    '</div>';
+    '</div>'+
+    (m.rcapTot>0?'<div style="margin-top:8px;padding:8px 12px;background:rgba(234,179,8,.08);border-radius:8px;border:1px solid rgba(234,179,8,.25);display:flex;align-items:center;justify-content:space-between">'+
+    '<span style="font-size:11px;color:#92400e;font-weight:500">📦 Rimborsi Capitale ricevuti nel periodo (non tassati, riducono PMC)</span>'+
+    '<span style="font-size:13px;font-weight:600;color:#92400e">€ '+fn(m.rcapTot)+'</span>'+
+    '</div>':'');
 }
 
 
@@ -1457,21 +1543,65 @@ function renderInc(){
 }
 
 // ── PORTAFOGLIO ───────────────────────────────────
+function setPrezzoAttuale(k, val){
+  const v=parseFloat(val);
+  if(!isNaN(v)&&v>0) prezziAttuali[k]=v;
+  else delete prezziAttuali[k];
+  markUnsaved(); renderPF();
+}
+
 function renderPF(){
   const {pos}=calcPF();
   let open=Object.values(pos).filter(p=>p.qty>0.0001);
-  const all=open.length, totI=open.reduce((s,p)=>s+p.qty*p.pmc,0);
+  const all=open.length;
   open=open.filter(p=>mf(p.strumento,pf.s)&&mf(p.isin,pf.i)&&me(p.broker,pf.b)&&me(p.val,pf.v)&&mf(fn(p.qty,4),pf.q)&&mf(fn(p.pmc,4),pf.p)&&mf(fn(p.qty*p.pmc,2),pf.inv));
+  const totI=open.reduce((s,p)=>s+p.qty*p.pmc,0);
+  // Totali mercato solo per posizioni con prezzo attuale
+  const pfk=p=>(p.isin||p.strumento)+'|'+(p.broker||'');
+  const totMkt=open.reduce((s,p)=>{const k=pfk(p);return prezziAttuali[k]?s+p.qty*prezziAttuali[k]:s;},0);
+  const totUP=open.reduce((s,p)=>{const k=pfk(p);return prezziAttuali[k]?s+p.qty*(prezziAttuali[k]-p.pmc):s;},0);
+  const hasMkt=open.some(p=>prezziAttuali[pfk(p)]);
   const s=_sort.pf;
   if(s.col!==null){
-    const pfKeys=[p=>p.strumento,p=>p.isin,p=>p.broker,p=>p.val,p=>p.firstBuy,p=>p.lastBuy,p=>p.qty,p=>p.pmc,p=>p.qty*p.pmc];
+    const pfKeys=[p=>p.strumento,p=>p.isin,p=>p.broker,p=>p.val,p=>p.firstBuy,p=>p.lastBuy,p=>p.qty,p=>p.pmc,p=>p.qty*p.pmc,p=>{const k=pfk(p);return prezziAttuali[k]||0;},p=>{const k=pfk(p);return prezziAttuali[k]?p.qty*prezziAttuali[k]:0;},p=>{const k=pfk(p);return prezziAttuali[k]?p.qty*(prezziAttuali[k]-p.pmc):0;}];
     open.sort((a,b)=>_cmp(pfKeys[s.col](a),pfKeys[s.col](b),s.dir));
   }
-  document.getElementById('pfMeta').textContent=all+' posizion'+(all===1?'e':'i')+(open.length!==all?' · '+open.length+' visibili':'')+' · Investito: € '+fn(totI,0);
+  const filtered=open.length!==all;
+  document.getElementById('pfMeta').textContent=all+' posizion'+(all===1?'e':'i')+(filtered?' · '+open.length+' visibili':'')+' · Investito: € '+fn(totI,0)+(filtered?' (filtrato)':'')+(hasMkt?' · Mercato: € '+fn(totMkt,0):'');
   const tb=document.getElementById('pfBody');
-  if(!open.length){tb.innerHTML='<tr><td colspan="9" class="empty">'+(all===0?'Nessuna posizione aperta':'Nessun risultato per i filtri')+'</td></tr>';_applyIcons('pfTable',_sort.pf);return;}
-  tb.innerHTML=open.map(p=>'<tr><td><span class="pos-dot"></span><strong>'+p.strumento+'</strong></td><td class="td-isin">'+(p.isin||'—')+'</td><td class="td-broker">'+(p.broker||'—')+'</td><td class="td-val">'+(p.val||'—')+'</td><td class="td-date">'+(p.firstBuy?fd(p.firstBuy):'—')+'</td><td class="td-date">'+(p.lastBuy&&p.lastBuy!==p.firstBuy?fd(p.lastBuy):'—')+'</td><td class="num">'+fn(p.qty,p.qty<100?4:2)+'</td><td class="num">'+fn(p.pmc,4)+'</td><td class="num" style="font-weight:600">€ '+fn(p.qty*p.pmc,2)+'</td></tr>').join('')+
-    '<tr class="tot-row"><td colspan="8" style="padding:9px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary)">Totale investito</td><td class="num" style="font-weight:700;font-size:13px">€ '+fn(totI,2)+'</td></tr>';
+  if(!open.length){tb.innerHTML='<tr><td colspan="12" class="empty">'+(all===0?'Nessuna posizione aperta':'Nessun risultato per i filtri')+'</td></tr>';_applyIcons('pfTable',_sort.pf);return;}
+  tb.innerHTML=open.map(p=>{
+    const k=pfk(p);
+    const pAtt=prezziAttuali[k]||null;
+    const valMkt=pAtt?p.qty*pAtt:null;
+    const up=pAtt?p.qty*(pAtt-p.pmc):null;
+    const upPct=pAtt&&p.pmc>0?(pAtt-p.pmc)/p.pmc*100:null;
+    const upCol=up===null?'var(--text-muted)':up>=0?'var(--accent)':'var(--red)';
+    const upSign=up===null?'':up>=0?'+':'';
+    return '<tr>'+
+      '<td><span class="pos-dot"></span><strong>'+p.strumento+'</strong></td>'+
+      '<td class="td-isin">'+(p.isin||'—')+'</td>'+
+      '<td class="td-broker">'+(p.broker||'—')+'</td>'+
+      '<td class="td-val">'+(p.val||'—')+'</td>'+
+      '<td class="td-date">'+(p.firstBuy?fd(p.firstBuy):'—')+'</td>'+
+      '<td class="td-date">'+(p.lastBuy&&p.lastBuy!==p.firstBuy?fd(p.lastBuy):'—')+'</td>'+
+      '<td class="num">'+fn(p.qty,p.qty<100?4:2)+'</td>'+
+      '<td class="num">'+fn(p.pmc,4)+'</td>'+
+      '<td class="num" style="font-weight:600">€ '+fn(p.qty*p.pmc,2)+'</td>'+
+      '<td class="num"><input type="number" step="0.0001" value="'+(pAtt||'')+'" placeholder="—" title="Inserisci prezzo attuale" '+
+        'onchange="setPrezzoAttuale(\''+k.replace(/'/g,"\\'")+"','"+'\'+this.value)" '+
+        'style="width:80px;text-align:right;font-family:var(--mono);font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text-primary)"></td>'+
+      '<td class="num" style="font-weight:600">'+(valMkt!==null?'€ '+fn(valMkt,2):'—')+'</td>'+
+      '<td class="num" style="font-weight:600;color:'+upCol+'">'+(up!==null?upSign+'€ '+fn(Math.abs(up),2)+(upPct!==null?' <span style="font-size:10px">('+upSign+upPct.toFixed(1)+'%)</span>':''):'—')+'</td>'+
+      '</tr>';
+  }).join('')+
+  '<tr class="tot-row">'+
+    '<td colspan="8" style="padding:9px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary)">Totale investito'+(filtered?' (filtrato)':'')+'</td>'+
+    '<td class="num" style="font-weight:700;font-size:13px">€ '+fn(totI,2)+'</td>'+
+    '<td></td>'+
+    '<td class="num" style="font-weight:700;font-size:13px">'+(hasMkt?'€ '+fn(totMkt,2):'—')+'</td>'+
+    '<td class="num" style="font-weight:700;font-size:13px;color:'+((hasMkt&&totUP>=0)?'var(--accent)':'var(--red)')+'">'+(hasMkt?(totUP>=0?'+':'')+' € '+fn(Math.abs(totUP),2):'—')+'</td>'+
+  '</tr>';
   _applyIcons('pfTable',_sort.pf);
 }
 
@@ -1486,6 +1616,10 @@ function renderPR(){
       const p=pos2[k], bq=t.qty||0, tot=p.qty+bq;
       if(tot>0&&bq>0){p.pmc=(p.pmc*p.qty+t.prezzo*bq)/tot; p.pmcFull=(p.pmcFull*p.qty+t.prezzo*bq+(t.comm||0))/tot;}
       p.qty=tot; p.strumento=t.strumento; p.broker=t.broker;
+    }
+    if(t.tipo==='RCAP'){
+      const p=pos2[k];
+      if(p&&p.qty>0){p.pmc=Math.max(0,p.pmc-(t.prezzo||0));p.pmcFull=Math.max(0,p.pmcFull-(t.prezzo||0));}
     }
     if(t.tipo==='SELL'){
       const d=pd(t.data);
@@ -1540,6 +1674,7 @@ function flNetTo(t){
   if(t.tipo==='BUY') return -((t.qty||0)*t.prezzo+(t.comm||0));
   if(t.tipo==='SELL') return (t.qty||0)*t.prezzo-(t.comm||0)-(t.tasse||0);
   if(t.tipo==='DIV'||t.tipo==='CED') return (t.qty||1)*t.prezzo-(t.tasse||0);
+  if(t.tipo==='RCAP') return (t.qty||0)*t.prezzo; // rimborso capitale: positivo, senza tasse
   return 0;
 }
 function renderTX(){
@@ -1600,6 +1735,7 @@ function onEditTipoChange(){
   const tipo=document.getElementById('eTipo').value, pl=document.getElementById('ePrezzoLabel');
   if(tipo==='DIV') pl.textContent='Dividendo per quota';
   else if(tipo==='CED') pl.textContent='Cedola per unità';
+  else if(tipo==='RCAP') pl.textContent='Rimborso per quota (€)';
   else if(tipo==='SELL') pl.textContent='Prezzo vendita';
   else pl.textContent='Prezzo acquisto';
 }
@@ -1671,7 +1807,7 @@ function importXLSX(inp){
         else{dr=String(dr).trim();const m1=dr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m1)ds=m1[3]+'-'+m1[2].padStart(2,'0')+'-'+m1[1].padStart(2,'0');else if(/^\d{4}-\d{2}-\d{2}$/.test(dr))ds=dr;else{const m2=dr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);if(m2)ds=m2[3]+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0');}}
         if(!ds){sal++;continue;}
         const tipo=String(row[iTi]||'').trim().toUpperCase();
-        if(!['BUY','SELL','DIV','CED'].includes(tipo)){sal++;continue;}
+        if(!['BUY','SELL','DIV','CED','RCAP'].includes(tipo)){sal++;continue;}
         const strumento=String(row[iSt]||'').trim(), prezzo=parseFloat(String(row[iPr]||'0').replace(',','.'))||0;
         if(!strumento||!prezzo){sal++;continue;}
         const isin=iIs>=0?String(row[iIs]||'').trim():'', broker=iBr>=0?String(row[iBr]||'').trim():'';
@@ -1759,7 +1895,7 @@ function setBkStatus(state,msg,url){
 }
 function setBtnBusy(id,busy,label){const b=document.getElementById(id);if(!b)return;b.disabled=busy;b.textContent=busy?'...':label;}
 function buildPayload(){
-  return JSON.stringify({version:2,savedAt:new Date().toISOString(),transactions:T,nextId:nid,brokers,budgetData:B,budgetYear:_budgetYear,budgetLabels:_bLabels,lq:LQ,snaps:SNAPS,
+  return JSON.stringify({version:2,savedAt:new Date().toISOString(),transactions:T,nextId:nid,brokers,budgetData:B,budgetYear:_budgetYear,budgetLabels:_bLabels,lq:LQ,snaps:SNAPS,prezziAttuali,
     settings:{dateFrom:document.getElementById('dateFrom').value,dateTo:document.getElementById('dateTo').value,
     valoreFinale:document.getElementById('valoreFinale').value,valoreIniziale:document.getElementById('valoreIniziale').value}},null,2);
 }
@@ -1767,7 +1903,7 @@ function applyPayload(data){
   if(!Array.isArray(data.transactions))throw new Error('Formato dati non valido');
   T=data.transactions; nid=data.nextId||T.reduce((mx,t)=>Math.max(mx,t.id),0)+1;
   if(Array.isArray(data.brokers)&&data.brokers.length) brokers=data.brokers;
-  if(data.budgetData){B=data.budgetData;} if(data.budgetYear){_budgetYear=data.budgetYear;} if(data.budgetLabels){_bLabels=data.budgetLabels;} if(data.lq){LQ=data.lq;} if(data.snaps){SNAPS=data.snaps;}
+  if(data.budgetData){B=data.budgetData;} if(data.budgetYear){_budgetYear=data.budgetYear;} if(data.budgetLabels){_bLabels=data.budgetLabels;} if(data.lq){LQ=data.lq;} if(data.snaps){SNAPS=data.snaps;} if(data.prezziAttuali){prezziAttuali=data.prezziAttuali;}
   if(data.settings){['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{const el=document.getElementById(id);if(el&&data.settings[id]!=null)el.value=data.settings[id];});}
   render(); syncBrokersFromT();
 }
@@ -2031,8 +2167,36 @@ function exportBudgetPDF(){
 function exportPortfolioPDF(){
   if(!window.jspdf||!window.jspdf.jsPDF){showToast('Libreria PDF non ancora caricata, riprova tra un secondo','err');return;}
   const {jsPDF}=window.jspdf, doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const m=calcM(), {pos,rea}=calcPF(), {from,to}=gFT();
-  const open=Object.values(pos).filter(p=>p.qty>0.0001), realized=Object.values(rea);
+  const m=calcM(), {from,to}=gFT();
+  // Rispetta filtro broker globale
+  const gBroker=(document.getElementById('gBroker')||{}).value||'';
+  const Tfiltered=gBroker?T.filter(t=>t.broker===gBroker):T;
+  // calcPF filtrato per broker
+  const posF={},reaF={};
+  for(const t of [...Tfiltered].sort((a,b)=>a.data.localeCompare(b.data))){
+    const k=pkey(t);
+    if(t.tipo==='BUY'){
+      if(!posF[k])posF[k]={isin:t.isin,strumento:t.strumento,qty:0,pmc:0,pmcFull:0,val:t.val||'EUR',broker:t.broker};
+      const p=posF[k],bq=t.qty||0,tot=p.qty+bq;
+      if(tot>0&&bq>0){p.pmc=(p.pmc*p.qty+t.prezzo*bq)/tot;p.pmcFull=(p.pmcFull*p.qty+t.prezzo*bq+(t.comm||0))/tot;}
+      p.qty=tot;
+    }
+    if(t.tipo==='RCAP'){const p=posF[k];if(p&&p.qty>0){p.pmc=Math.max(0,p.pmc-(t.prezzo||0));p.pmcFull=Math.max(0,p.pmcFull-(t.prezzo||0));}}
+    if(t.tipo==='SELL'){
+      const d=pd(t.data),p=posF[k];
+      if(p&&p.qty>0){
+        const sq=Math.min(t.qty||0,p.qty);
+        const gl=sq*t.prezzo-sq*p.pmc,co=sq*(p.pmcFull-p.pmc)+(t.comm||0),nl=gl-co-(t.tasse||0);
+        if(!reaF[k])reaF[k]={isin:p.isin||t.isin,strumento:p.strumento||t.strumento,broker:p.broker||t.broker,qv:0,gl:0,co:0,ta:0,nl:0};
+        reaF[k].qv+=sq;reaF[k].gl+=gl;reaF[k].co+=co;reaF[k].ta+=(t.tasse||0);reaF[k].nl+=nl;
+        p.qty=Math.max(0,p.qty-sq);
+      }
+    }
+  }
+  const open=Object.values(posF).filter(p=>p.qty>0.0001);
+  const realized=Object.values(reaF);
+  // Movimenti filtrati per periodo E broker
+  const movFil=Tfiltered.filter(t=>{const d=pd(t.data);return d>=from&&d<=to;});
   const W=210,MX=14,CW=W-MX*2; let y=0;
   const GREEN=[22,163,74],BLUE=[37,99,235],RED=[220,38,38],AMBER=[217,119,6];
   const GRAY=[107,114,128],LGRAY=[156,163,175],BORDER=[229,227,220];
@@ -2047,7 +2211,9 @@ function exportPortfolioPDF(){
   const addFooters=()=>{const n=doc.internal.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...LGRAY);doc.setDrawColor(...BORDER);doc.setLineWidth(0.2);doc.line(MX,290,W-MX,290);doc.text('Portfolio Report  ·  '+fD(from)+' → '+fD(to),MX,294);doc.text('Pag. '+i+' / '+n,W-MX,294,{align:'right'});}};
   doc.setFillColor(...BG);doc.rect(0,0,W,40,'F');doc.setFillColor(...BLUE);doc.rect(0,0,4,40,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(22);doc.setTextColor(...TEXT);doc.text('Portfolio Report',MX+4,18);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...GRAY);doc.text('Periodo: '+fD(from)+'  →  '+fD(to),MX+4,26);doc.text('Generato il: '+new Date().toLocaleString('it-IT'),MX+4,32);doc.setDrawColor(...BORDER);doc.setLineWidth(0.3);doc.line(0,40,W,40);y=50;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...GRAY);
+  doc.text('Periodo: '+fD(from)+'  →  '+fD(to)+(gBroker?' · Broker: '+gBroker:''),MX+4,26);
+  doc.text('Generato il: '+new Date().toLocaleString('it-IT'),MX+4,32);doc.setDrawColor(...BORDER);doc.setLineWidth(0.3);doc.line(0,40,W,40);y=50;
   sectionTitle('Performance',GREEN);
 
   // Riga 1: 4 KPI — XIRR, ROI, Commissioni, Tasse (specchio esatto dell'app)
@@ -2112,10 +2278,18 @@ function exportPortfolioPDF(){
   // Portafoglio Attivo
   if(open.length>0){
     sectionTitle('Portafoglio Attivo',BLUE);
-    const pfTot=open.reduce((s,p)=>s+p.qty*p.pmc,0);
-    const pfRows=open.map(p=>[p.strumento,p.isin||'—',p.broker||'—',fN2(p.qty,p.qty<100?4:2),fN2(p.pmc,4),'€ '+fN2(p.qty*p.pmc,2)]);
-    pfRows.push(['TOTALE INVESTITO','','','','','€ '+fN2(pfTot,2)]);
-    doc.autoTable({startY:y,head:[['Strumento','ISIN','Broker','Quantità','PMC','Valore Investito']],body:pfRows,margin:{left:MX,right:MX},styles:{fontSize:7.5,cellPadding:2.5,textColor:TEXT},headStyles:{fillColor:BG2,textColor:GRAY,fontStyle:'bold',fontSize:6.5,lineColor:BORDER,lineWidth:0.2},columnStyles:{0:{cellWidth:52},1:{cellWidth:28},2:{cellWidth:24},3:{cellWidth:18,halign:'right'},4:{cellWidth:18,halign:'right'},5:{cellWidth:26,halign:'right',fontStyle:'bold'}},alternateRowStyles:{fillColor:[252,252,250]},didParseCell:d=>{if(d.row.index===pfRows.length-1){d.cell.styles.fillColor=BG2;d.cell.styles.fontStyle='bold';}}});
+    const pfk=p=>(p.isin||p.strumento)+'|'+(p.broker||'');
+    const pfRows=open.map(p=>{
+      const k=pfk(p); const pAtt=prezziAttuali[k]||null;
+      const up=pAtt?p.qty*(pAtt-p.pmc):null;
+      const upSign=up===null?'':up>=0?'+':'−';
+      return [p.strumento,p.isin||'—',p.broker||'—',fN2(p.qty,p.qty<100?4:2),fN2(p.pmc,4),'€ '+fN2(p.qty*p.pmc,2),pAtt?fN2(pAtt,4):'—',up!==null?upSign+'€ '+fN2(Math.abs(up),2):'—'];
+    });
+    const totI2=open.reduce((s,p)=>s+p.qty*p.pmc,0);
+    const totMkt=open.reduce((s,p)=>{const k=pfk(p);return prezziAttuali[k]?s+p.qty*prezziAttuali[k]:s;},0);
+    const totUP=open.reduce((s,p)=>{const k=pfk(p);return prezziAttuali[k]?s+p.qty*(prezziAttuali[k]-p.pmc):0;},0);
+    pfRows.push(['TOTALE INVESTITO','','','','','€ '+fN2(totI2,2),'',totUP!==0?(totUP>=0?'+':'−')+'€ '+fN2(Math.abs(totUP),2):'—']);
+    doc.autoTable({startY:y,head:[['Strumento','ISIN','Broker','Quantità','PMC','Valore Investito','P. Attuale','U/P Latente']],body:pfRows,margin:{left:MX,right:MX},styles:{fontSize:7,cellPadding:2.5,textColor:TEXT},headStyles:{fillColor:BG2,textColor:GRAY,fontStyle:'bold',fontSize:6.5,lineColor:BORDER,lineWidth:0.2},columnStyles:{0:{cellWidth:46},1:{cellWidth:24},2:{cellWidth:20},3:{cellWidth:16,halign:'right'},4:{cellWidth:16,halign:'right'},5:{cellWidth:22,halign:'right',fontStyle:'bold'},6:{cellWidth:16,halign:'right'},7:{cellWidth:22,halign:'right',fontStyle:'bold'}},alternateRowStyles:{fillColor:[252,252,250]},didParseCell:d=>{if(d.row.index===pfRows.length-1){d.cell.styles.fillColor=BG2;d.cell.styles.fontStyle='bold';}if(d.column.index===7&&d.section==='body'){const row=open[d.row.index];if(row){const up=prezziAttuali[pfk(row)];d.cell.styles.textColor=up===undefined?GRAY:up>=row.pmc?GREEN:RED;}}}});
     y=doc.lastAutoTable.finalY+8;
   }
 
@@ -2128,11 +2302,10 @@ function exportPortfolioPDF(){
     doc.autoTable({startY:y,head:[['Strumento','ISIN','Qtà Vend.','P&L Lordo','Commissioni','Tasse','Utile/Perdita Netta']],body:prRows,margin:{left:MX,right:MX},styles:{fontSize:7.5,cellPadding:2.5,textColor:TEXT},headStyles:{fillColor:BG2,textColor:GRAY,fontStyle:'bold',fontSize:6.5,lineColor:BORDER,lineWidth:0.2},columnStyles:{0:{cellWidth:48},1:{cellWidth:26},2:{cellWidth:16,halign:'right'},3:{cellWidth:22,halign:'right'},4:{cellWidth:20,halign:'right'},5:{cellWidth:16,halign:'right'},6:{cellWidth:24,halign:'right',fontStyle:'bold'}},alternateRowStyles:{fillColor:[252,252,250]},didParseCell:d=>{if(d.row.index===prRows.length-1){d.cell.styles.fillColor=BG2;d.cell.styles.fontStyle='bold';}if(d.column.index===6&&d.section==='body'){const nl=d.row.index<realized.length?realized[d.row.index].nl:totN;d.cell.styles.textColor=nl>=0?GREEN:RED;}}});
     y=doc.lastAutoTable.finalY+8;
   }
-  checkY(30);sectionTitle('Movimenti nel Periodo',GRAY);
-  const movPeriod=T.filter(t=>{const d=pd(t.data);return d>=from&&d<=to;});
-  const TIPO_COL={BUY:BLUE,SELL:RED,DIV:GREEN,CED:PURPLE};
-  const movRows=movPeriod.map(t=>{const fl=flNetTo(t);return[fd(t.data),t.tipo,t.strumento,t.isin||'',t.broker||'',t.qty!==null?fN2(t.qty,t.qty<100?2:0):'—',fN2(t.prezzo,4),t.comm?fN2(t.comm):'—',t.tasse?fN2(t.tasse):'—',sgn(fl)];});
-  doc.autoTable({startY:y,head:[['Data','Tipo','Strumento','ISIN','Broker','Qtà','Prezzo/Imp.','Comm.','Tasse','Flusso Netto']],body:movRows,margin:{left:MX,right:MX},styles:{fontSize:6.5,cellPadding:2,textColor:TEXT},headStyles:{fillColor:BG2,textColor:GRAY,fontStyle:'bold',fontSize:6,lineColor:BORDER,lineWidth:0.2},columnStyles:{0:{cellWidth:16},1:{cellWidth:11},2:{cellWidth:40},3:{cellWidth:20},4:{cellWidth:14},5:{cellWidth:11,halign:'right'},6:{cellWidth:15,halign:'right'},7:{cellWidth:11,halign:'right'},8:{cellWidth:11,halign:'right'},9:{cellWidth:18,halign:'right',fontStyle:'bold'}},alternateRowStyles:{fillColor:[252,252,250]},didParseCell:d=>{if(d.column.index===1&&d.section==='body'){const t=movPeriod[d.row.index];if(t)d.cell.styles.textColor=TIPO_COL[t.tipo]||GRAY;}if(d.column.index===9&&d.section==='body'){const t=movPeriod[d.row.index];if(t){const fl=flNetTo(t);d.cell.styles.textColor=fl>=0?GREEN:RED;}}}});
+  checkY(30);sectionTitle('Movimenti nel Periodo'+(gBroker?' · '+gBroker:''),GRAY);
+  const TIPO_COL={BUY:BLUE,SELL:RED,DIV:GREEN,CED:PURPLE,RCAP:AMBER};
+  const movRows=movFil.map(t=>{const fl=flNetTo(t);return[fd(t.data),t.tipo,t.strumento,t.isin||'',t.broker||'',t.qty!==null?fN2(t.qty,t.qty<100?2:0):'—',fN2(t.prezzo,4),t.comm?fN2(t.comm):'—',t.tasse?fN2(t.tasse):'—',sgn(fl)];});
+  doc.autoTable({startY:y,head:[['Data','Tipo','Strumento','ISIN','Broker','Qtà','Prezzo/Imp.','Comm.','Tasse','Flusso Netto']],body:movRows,margin:{left:MX,right:MX},styles:{fontSize:6.5,cellPadding:2,textColor:TEXT},headStyles:{fillColor:BG2,textColor:GRAY,fontStyle:'bold',fontSize:6,lineColor:BORDER,lineWidth:0.2},columnStyles:{0:{cellWidth:16},1:{cellWidth:11},2:{cellWidth:40},3:{cellWidth:20},4:{cellWidth:14},5:{cellWidth:11,halign:'right'},6:{cellWidth:15,halign:'right'},7:{cellWidth:11,halign:'right'},8:{cellWidth:11,halign:'right'},9:{cellWidth:18,halign:'right',fontStyle:'bold'}},alternateRowStyles:{fillColor:[252,252,250]},didParseCell:d=>{if(d.column.index===1&&d.section==='body'){const t=movFil[d.row.index];if(t)d.cell.styles.textColor=TIPO_COL[t.tipo]||GRAY;}if(d.column.index===9&&d.section==='body'){const t=movFil[d.row.index];if(t){const fl=flNetTo(t);d.cell.styles.textColor=fl>=0?GREEN:RED;}}}});
   addFooters();
   doc.save('portfolio-report-'+new Date().toISOString().slice(0,10)+'.pdf');
   showToast('✓ PDF generato','ok');
@@ -2617,7 +2790,7 @@ function exportLiqPDF(){
   }catch(err){showToast('Errore PDF: '+err.message,'err');console.error(err);}
 }
 
-// ── STORICO VALORIZZAZIONI ────────────────────────
+let prezziAttuali = {}; // {pkey: prezzo} — salvato nel payload
 let SNAPS = []; // [{id, data, broker, valore, note}]
 
 function renderSnaps(){

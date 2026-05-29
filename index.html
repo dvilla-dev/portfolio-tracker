@@ -2588,49 +2588,55 @@ function hideLoginScreen(){
 
 async function doLogin(){
   const tok=document.getElementById('loginToken').value.trim();
-  if(!tok||tok.length<10){setLoginStatus('Inserisci un token valido','err');return;}
+  if(!tok||tok.length<10){setLoginStatus('Inserisci un token valido (ghp_...)','err');return;}
   const btn=document.getElementById('loginBtn');
-  btn.disabled=true; btn.textContent='Accesso in corso...';
-  setLoginStatus('Verifica token...','');
+  btn.disabled=true; btn.textContent='Accesso...';
+  setLoginStatus('Connessione a GitHub...','');
   try{
-    // 1. Verifica token
-    const resp=await ghFetch('https://api.github.com/gists?per_page=100',{
-      headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
-    });
-    if(!resp.ok){
-      const e=await resp.json().catch(()=>({}));
-      throw new Error('Token non valido: '+(e.message||'HTTP '+resp.status));
-    }
-    const gists=await resp.json();
-    // 2. Cerca il gist portfolio
-    const found=gists.find(g=>g.files&&(g.files[GIST_FILE_NAME]||Object.keys(g.files).some(f=>f.includes('portfolio-tracker'))));
+    const headers={'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'};
+    // 1. Lista gist
+    const r=await fetch('https://api.github.com/gists?per_page=100',{headers});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error((e.message||'HTTP '+r.status)+' — verifica permesso gist nel token');}
+    const gists=await r.json();
+    setLoginStatus('Connesso · '+gists.length+' gist trovati...','ok');
     localStorage.setItem(LS_TOKEN,tok);
-    document.getElementById('ghToken').value=tok;
+    // 2. Cerca backup
+    const found=gists.find(g=>Object.keys(g.files||{}).some(f=>f.includes('portfolio-tracker')));
     if(found){
-      setLoginStatus('Backup trovato — caricamento...','');
-      localStorage.setItem(LS_GIST_ID, found.id);
-      localStorage.setItem(LS_GIST_URL, found.html_url||'');
-      // Carica dati
-      const fileObj=found.files[GIST_FILE_NAME]||found.files[Object.keys(found.files).find(f=>f.includes('portfolio-tracker'))];
-      let raw=fileObj?.content;
-      if(!raw||fileObj?.truncated){
-        const rawResp=await fetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+tok}});
-        raw=await rawResp.text();
+      localStorage.setItem(LS_GIST_ID,found.id);
+      setLoginStatus('Backup trovato — download...','ok');
+      // 3. Carica gist completo (necessario per contenuto)
+      const r2=await fetch('https://api.github.com/gists/'+found.id,{headers});
+      if(!r2.ok) throw new Error('Errore caricamento gist');
+      const gist=await r2.json();
+      const fileKey=Object.keys(gist.files).find(f=>f.includes('portfolio-tracker'));
+      const fileObj=gist.files[fileKey];
+      let raw=fileObj.content;
+      // File grande: scarica raw
+      if(!raw||fileObj.truncated||raw.trim().length<10){
+        setLoginStatus('File grande — download completo...','');
+        const r3=await fetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+tok}});
+        if(!r3.ok) throw new Error('Errore download raw');
+        raw=await r3.text();
       }
+      if(!raw||raw.length<10) throw new Error('Contenuto vuoto nel backup');
       const data=JSON.parse(raw);
+      if(!data.transactions) throw new Error('Formato backup non valido');
       applyPayload(data);
-      localStorage.setItem(LS_SAVED,new Date().toLocaleString('it-IT'));
-      setBkStatus('ok','Caricato '+new Date(data.savedAt).toLocaleString('it-IT'),found.html_url||'');
+      localStorage.setItem(LS_SAVED,new Date(data.savedAt||Date.now()).toLocaleString('it-IT'));
+      localStorage.setItem(LS_GIST_URL,found.html_url||'');
+      setBkStatus('ok','Caricato · '+data.transactions.length+' movimenti',found.html_url||'');
+      hideLoginScreen();
       showToast('✓ '+data.transactions.length+' movimenti caricati','ok');
     } else {
-      setLoginStatus('Nessun backup trovato — verrà creato al primo salvataggio','ok');
-      setBkStatus('ok','Pronto — '+gists.length+' gist trovati, nessun backup');
-      showToast('Token valido. Nessun backup trovato — clicca ↑ Salva per crearne uno.','ok');
+      hideLoginScreen();
+      setBkStatus('ok','Connesso · nessun backup trovato');
+      showToast('Token OK · Nessun backup trovato · clicca ↑ Salva per crearne uno','ok');
     }
-    hideLoginScreen();
   }catch(e){
     setLoginStatus(e.message,'err');
-    btn.disabled=false; btn.textContent='Accedi';
+    btn.disabled=false; btn.textContent='Accedi con GitHub';
+    console.error('Login error:',e);
   }
 }
 

@@ -2028,13 +2028,19 @@ function applyPayload(data){
   T=data.transactions; nid=data.nextId||T.reduce((mx,t)=>Math.max(mx,t.id),0)+1;
   if(Array.isArray(data.brokers)&&data.brokers.length) brokers=data.brokers;
   if(data.budgetData){B=data.budgetData;} if(data.budgetYear){_budgetYear=data.budgetYear;} if(data.budgetLabels){_bLabels=data.budgetLabels;} if(data.budgetCustom){_bCustom=data.budgetCustom;} if(data.lq){LQ=data.lq;} if(data.snaps){SNAPS=data.snaps;} if(data.prezziAttuali){prezziAttuali=data.prezziAttuali;} if(data.assets){ASSETS=data.assets;}
-  if(data.settings){['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{const el=document.getElementById(id);if(el&&data.settings[id]!=null)el.value=data.settings[id];});}
-  // Forza render completo di tutto
-  try{render();}catch(e){console.error('render:',e);}
+  // Imposta valori senza triggherare eventi input
+  if(data.settings){
+    _rendering=true;
+    ['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el&&data.settings[id]!=null) el.value=data.settings[id];
+    });
+    _rendering=false;
+  }
   try{syncBrokersFromT();}catch(e){}
   try{renderBrokerList();}catch(e){}
   try{_updateGlobalBrokerSel();}catch(e){}
-  // Re-render sezione attiva
+  try{render();}catch(e){console.error('render:',e);}
   const pages=['portafoglio','liquidita','asset','budget'];
   const active=pages.find(p=>{const el=document.getElementById('page-'+p);return el&&el.style.display!=='none';})||'portafoglio';
   if(active==='liquidita')try{renderLiquidita();}catch(e){}
@@ -3497,10 +3503,12 @@ function syncSectionDates(){
 }
 
 // ── INIT ──────────────────────────────────────────
+let _rendering=false;
+function safeRender(){if(_rendering)return;_rendering=true;try{render();}finally{_rendering=false;}}
 document.getElementById('valoreFinale').value='50000';
 ['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{
   const el=document.getElementById(id);
-  if(el) el.addEventListener('input',()=>{if(id==='dateFrom'||id==='dateTo')syncSectionDates();render();});
+  if(el) el.addEventListener('input',()=>{if(_rendering)return;if(id==='dateFrom'||id==='dateTo')syncSectionDates();safeRender();});
 });
 setTheme(localStorage.getItem(LS_THEME)||'light');
 function startApp(){

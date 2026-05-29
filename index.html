@@ -296,9 +296,11 @@ body{min-height:100vh}
     <div class="sp-section" style="border-bottom:1px solid var(--border)">
       <div class="sp-label">☁ GitHub Gist</div>
       <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="font-size:10px;color:var(--text-muted);padding:4px 6px;background:var(--surface2);border-radius:5px;line-height:1.5">
+          Inserisci il token su qualsiasi dispositivo — i dati si caricano automaticamente
+        </div>
         <input type="password" id="ghToken" class="bk-input" placeholder="ghp_… Personal Access Token" style="width:100%"
           onchange="onTokenChange()" onblur="onTokenChange()">
-        <input type="text" id="ghGistId" class="bk-input" placeholder="Gist ID (auto dopo il 1° salvataggio)" style="width:100%">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button id="btnGhSave" class="btn-bk save" onclick="saveGist()" style="flex:1">↑ Salva</button>
           <button id="btnGhLoad" class="btn-bk load" onclick="loadGist()" style="flex:1">↓ Carica</button>
@@ -1999,7 +2001,7 @@ async function saveGist(){
   const token=document.getElementById('ghToken').value.trim();
   if(!token){showToast('Inserisci il Personal Access Token GitHub','err');return;}
   localStorage.setItem(LS_TOKEN,token);
-  const gistId=document.getElementById('ghGistId').value.trim()||localStorage.getItem(LS_GIST_ID)||'';
+  const gistId=localStorage.getItem(LS_GIST_ID)||'';
   const isNew=!gistId;
   setBtnBusy('btnGhSave',true,'...'); setBkStatus('','Salvataggio...');
   try{
@@ -2009,16 +2011,15 @@ async function saveGist(){
     const gist=await resp.json();
     localStorage.setItem(LS_GIST_ID,gist.id); localStorage.setItem(LS_GIST_URL,gist.html_url);
     const ts=new Date().toLocaleString('it-IT'); localStorage.setItem(LS_SAVED,ts); _unsaved=false;
-    document.getElementById('ghGistId').value=gist.id;
     setBkStatus('ok','Salvato '+ts,gist.html_url); showToast(isNew?'✓ Gist creato':'✓ Gist aggiornato','ok');
   }catch(e){setBkStatus('err','Errore: '+e.message);showToast('GitHub error: '+e.message,'err');}
   setBtnBusy('btnGhSave',false,'↑ Salva');
 }
 async function loadGist(silent=false){
   const token=document.getElementById('ghToken').value.trim()||localStorage.getItem(LS_TOKEN)||'';
-  const gistId=(document.getElementById('ghGistId').value.trim()||localStorage.getItem(LS_GIST_ID)||'').trim();
+  const gistId=localStorage.getItem(LS_GIST_ID)||'';
   if(!token){showToast('Inserisci il Personal Access Token GitHub','err');return;}
-  if(!gistId){showToast('Inserisci il Gist ID oppure salva prima','err');return;}
+  if(!gistId){showToast('Nessun backup trovato — salva prima','err');return;}
   setBtnBusy('btnGhLoad',true,'...'); setBkStatus('','Caricamento...');
   try{
     const resp=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
@@ -2029,7 +2030,7 @@ async function loadGist(silent=false){
     if(!silent&&!confirm('Caricare '+data.transactions.length+' movimenti dal backup del '+ts+'?\nI dati attuali saranno sovrascritti.'))return;
     pushHistory(); applyPayload(data);
     localStorage.setItem(LS_GIST_ID,gistId); localStorage.setItem(LS_GIST_URL,gist.html_url);
-    document.getElementById('ghGistId').value=gistId; _unsaved=false;
+    _unsaved=false;
     setBkStatus('ok','Caricato '+ts,gist.html_url); showToast('✓ Dati caricati dal Gist','ok');
   }catch(e){setBkStatus('err','Errore: '+e.message);showToast('GitHub error: '+e.message,'err');}
   setBtnBusy('btnGhLoad',false,'↓ Carica');
@@ -2043,7 +2044,7 @@ function toggleHistory(){
 }
 async function loadGistHistory(){
   const token=document.getElementById('ghToken').value.trim()||localStorage.getItem(LS_TOKEN)||'';
-  const gistId=(document.getElementById('ghGistId').value.trim()||localStorage.getItem(LS_GIST_ID)||'').trim();
+  const gistId=localStorage.getItem(LS_GIST_ID)||'';
   const body=document.getElementById('bkHistoryBody');
   if(!token||!gistId){body.innerHTML='<div class="bk-history-empty">Configura token e Gist ID prima</div>';return;}
   body.innerHTML='<div class="bk-history-empty">Caricamento...</div>';
@@ -2465,14 +2466,38 @@ function onTokenChange(){
   const tok=document.getElementById('ghToken').value.trim();
   if(!tok) return;
   localStorage.setItem(LS_TOKEN, tok);
-  const gid=localStorage.getItem(LS_GIST_ID)||'';
-  if(gid){
-    setBkStatus('','Token salvato — caricamento dati dal Gist...');
-    setTimeout(()=>loadGist(true), 300);
-  } else {
-    setBkStatus('ok','Token salvato');
-    showToast('✓ Token salvato. Inserisci il Gist ID o salva per crearne uno.','ok');
-  }
+  setBkStatus('','Ricerca backup in corso...');
+  setTimeout(()=>findAndLoadGist(tok), 300);
+}
+
+function onGistIdChange(){ /* campo rimosso, funzione vuota per compatibilità */ }
+
+async function findAndLoadGist(token){
+  // Cerca tra i gist dell'utente quello con il file GIST_FILE
+  try{
+    const gid=localStorage.getItem(LS_GIST_ID)||'';
+    if(gid){
+      // GistID già in localStorage — carica direttamente
+      await loadGist(true); return;
+    }
+    setBkStatus('','Ricerca backup nei tuoi Gist...');
+    const resp=await fetch('https://api.github.com/gists?per_page=100',{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+    if(!resp.ok){setBkStatus('err','Token non valido o errore di rete');return;}
+    const gists=await resp.json();
+    const found=gists.find(g=>g.files&&g.files[GIST_FILE]);
+    if(found){
+      localStorage.setItem(LS_GIST_ID, found.id);
+      localStorage.setItem(LS_GIST_URL, found.html_url);
+      // Popola il campo ghGistId se esiste
+      const gidEl=document.getElementById('ghGistId');
+      if(gidEl) gidEl.value=found.id;
+      setBkStatus('','Backup trovato — caricamento...');
+      await loadGist(true);
+    } else {
+      setBkStatus('ok','Token valido — nessun backup trovato. Clicca ↑ Salva per crearne uno.');
+      showToast('Token valido. Nessun backup trovato — verrà creato al primo salvataggio.','ok');
+    }
+  }catch(e){setBkStatus('err','Errore: '+e.message);}
 }
 
 function toggleSettings(){
@@ -3277,13 +3302,17 @@ document.getElementById('valoreFinale').value='50000';
 });
 setTheme(localStorage.getItem(LS_THEME)||'light');
 (function initBackup(){
-  const tok=localStorage.getItem(LS_TOKEN), gid=localStorage.getItem(LS_GIST_ID), gurl=localStorage.getItem(LS_GIST_URL), sat=localStorage.getItem(LS_SAVED);
+  const tok=localStorage.getItem(LS_TOKEN)||'';
+  const gid=localStorage.getItem(LS_GIST_ID)||'';
+  const gurl=localStorage.getItem(LS_GIST_URL)||'';
+  const sat=localStorage.getItem(LS_SAVED)||'';
   if(tok) document.getElementById('ghToken').value=tok;
-  if(gid) document.getElementById('ghGistId').value=gid;
   if(tok && gid){
-    // Token + GistID già salvati → carica silenziosamente i dati più recenti
     setBkStatus('','Caricamento dati aggiornati...');
     setTimeout(()=>loadGist(true), 500);
+  } else if(tok && !gid){
+    setBkStatus('','Ricerca backup...');
+    setTimeout(()=>findAndLoadGist(tok), 500);
   } else if(sat){
     setBkStatus('ok','Ultimo salvataggio: '+sat, gurl||undefined);
   } else {

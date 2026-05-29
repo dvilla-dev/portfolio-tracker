@@ -296,7 +296,8 @@ body{min-height:100vh}
     <div class="sp-section" style="border-bottom:1px solid var(--border)">
       <div class="sp-label">☁ GitHub Gist</div>
       <div style="display:flex;flex-direction:column;gap:7px">
-        <input type="password" id="ghToken" class="bk-input" placeholder="ghp_… Personal Access Token" style="width:100%">
+        <input type="password" id="ghToken" class="bk-input" placeholder="ghp_… Personal Access Token" style="width:100%"
+          onchange="onTokenChange()" onblur="onTokenChange()">
         <input type="text" id="ghGistId" class="bk-input" placeholder="Gist ID (auto dopo il 1° salvataggio)" style="width:100%">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button id="btnGhSave" class="btn-bk save" onclick="saveGist()" style="flex:1">↑ Salva</button>
@@ -2460,6 +2461,20 @@ function showToast(msg,type){
 // ── SETTINGS & THEME ──────────────────────────────
 const LS_THEME='pt-theme';
 let _settingsOpen=false;
+function onTokenChange(){
+  const tok=document.getElementById('ghToken').value.trim();
+  if(!tok) return;
+  localStorage.setItem(LS_TOKEN, tok);
+  const gid=localStorage.getItem(LS_GIST_ID)||'';
+  if(gid){
+    setBkStatus('','Token salvato — caricamento dati dal Gist...');
+    setTimeout(()=>loadGist(true), 300);
+  } else {
+    setBkStatus('ok','Token salvato');
+    showToast('✓ Token salvato. Inserisci il Gist ID o salva per crearne uno.','ok');
+  }
+}
+
 function toggleSettings(){
   _settingsOpen=!_settingsOpen;
   document.getElementById('settingsPanel').classList.toggle('open',_settingsOpen);
@@ -3265,8 +3280,15 @@ setTheme(localStorage.getItem(LS_THEME)||'light');
   const tok=localStorage.getItem(LS_TOKEN), gid=localStorage.getItem(LS_GIST_ID), gurl=localStorage.getItem(LS_GIST_URL), sat=localStorage.getItem(LS_SAVED);
   if(tok) document.getElementById('ghToken').value=tok;
   if(gid) document.getElementById('ghGistId').value=gid;
-  if(sat) setBkStatus('ok','Ultimo salvataggio: '+sat,gurl||undefined);
-  else setBkStatus('','Nessun backup GitHub ancora');
+  if(tok && gid){
+    // Token + GistID già salvati → carica silenziosamente i dati più recenti
+    setBkStatus('','Caricamento dati aggiornati...');
+    setTimeout(()=>loadGist(true), 500);
+  } else if(sat){
+    setBkStatus('ok','Ultimo salvataggio: '+sat, gurl||undefined);
+  } else {
+    setBkStatus('','Inserisci il token GitHub per abilitare il backup');
+  }
 })();
 // ── BUDGET DATA ────────────────────────────────────
 // Structure: B[year][rowId] = [gen,feb,mar,apr,mag,giu,lug,ago,set,ott,nov,dic]

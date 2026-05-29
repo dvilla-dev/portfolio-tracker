@@ -1996,7 +1996,7 @@ function _scheduleAutoSave(){
 async function _autoSave(token,gistId){
   setBkStatus('','⟳ Salvataggio automatico...');
   try{
-    const resp=await ghFetch('https://api.github.com/gists/'+gistId,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({files:{[GIST_FILE]:{content:buildPayload()}}})});
+    const resp=await fetch('https://api.github.com/gists/'+gistId,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({files:{[GIST_FILE]:{content:buildPayload()}}})});
     if(!resp.ok){const e=await resp.json();throw new Error(e.message||'HTTP '+resp.status);}
     const gist=await resp.json();
     const ts=new Date().toLocaleString('it-IT');
@@ -2050,7 +2050,7 @@ async function saveGist(){
   setBtnBusy('btnGhSave',true,'...'); setBkStatus('','Salvataggio...');
   try{
     const url=isNew?'https://api.github.com/gists':'https://api.github.com/gists/'+gistId;
-    const resp=await ghFetch(url,{method:isNew?'POST':'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({description:'Portfolio Tracker backup',public:false,files:{[GIST_FILE]:{content:buildPayload()}}})});
+    const resp=await fetch(url,{method:isNew?'POST':'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({description:'Portfolio Tracker backup',public:false,files:{[GIST_FILE]:{content:buildPayload()}}})});
     if(!resp.ok){const e=await resp.json();throw new Error(e.message||'HTTP '+resp.status);}
     const gist=await resp.json();
     localStorage.setItem(LS_GIST_ID,gist.id); localStorage.setItem(LS_GIST_URL,gist.html_url);
@@ -2062,7 +2062,7 @@ async function saveGist(){
 async function loadGistWithFile(gistId, fileName, token){
   setBtnBusy('btnGhLoad',true,'...'); setBkStatus('','Caricamento...');
   try{
-    const resp=await ghFetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+    const resp=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
     if(!resp.ok){const e=await resp.json();throw new Error(e.message||'HTTP '+resp.status);}
     const gist=await resp.json();
     // Trova il file giusto (nome esatto, poi GIST_FILE, poi qualsiasi JSON)
@@ -2071,7 +2071,7 @@ async function loadGistWithFile(gistId, fileName, token){
     // Se il contenuto è troncato, scaricalo dall'URL raw
     let raw=fileObj.content;
     if(fileObj.truncated || !raw || raw.length<100){
-      const rawResp=await ghFetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+token}});
+      const rawResp=await fetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+token}});
       if(!rawResp.ok) throw new Error('Impossibile scaricare il contenuto completo');
       raw=await rawResp.text();
     }
@@ -2093,14 +2093,14 @@ async function loadGist(silent=false){
   if(!gistId){showToast('Nessun backup trovato — salva prima','err');return;}
   setBtnBusy('btnGhLoad',true,'...'); setBkStatus('','Caricamento...');
   try{
-    const resp=await ghFetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+    const resp=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
     if(!resp.ok){const e=await resp.json();throw new Error(e.message||'HTTP '+resp.status);}
     const gist=await resp.json();
     const fileObj=gist.files[GIST_FILE];
     if(!fileObj) throw new Error('File non trovato nel Gist');
     let raw=fileObj.content;
     if(fileObj.truncated||!raw||raw.length<100){
-      const rawResp=await ghFetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+token}});
+      const rawResp=await fetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+token}});
       if(!rawResp.ok) throw new Error('Impossibile scaricare il contenuto completo');
       raw=await rawResp.text();
     }
@@ -2127,7 +2127,7 @@ async function loadGistHistory(){
   if(!token||!gistId){body.innerHTML='<div class="bk-history-empty">Configura token e Gist ID prima</div>';return;}
   body.innerHTML='<div class="bk-history-empty">Caricamento...</div>';
   try{
-    const resp=await ghFetch('https://api.github.com/gists/'+gistId+'/commits?per_page=10',{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+    const resp=await fetch('https://api.github.com/gists/'+gistId+'/commits?per_page=10',{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const commits=await resp.json();
     if(!commits.length){body.innerHTML='<div class="bk-history-empty">Nessun commit trovato</div>';return;}
@@ -2144,7 +2144,7 @@ async function restoreRevision(revUrl,label){
   if(!confirm('Ripristinare il backup del '+label+'?\nI dati attuali saranno sovrascritti.')) return;
   const token=document.getElementById('ghToken').value.trim()||localStorage.getItem(LS_TOKEN)||'';
   try{
-    const rev=await(await ghFetch(revUrl,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}})).json();
+    const rev=await(await fetch(revUrl,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}})).json();
     const raw=rev.files[GIST_FILE]?.content;
     if(!raw) throw new Error('File non trovato in questa revisione');
     const data=JSON.parse(raw);
@@ -2543,7 +2543,7 @@ let _settingsOpen=false;
 // ── AUTH & LOGIN ──────────────────────────────────
 // CORS: da file:// i browser bloccano le chiamate API cross-origin
 // Soluzione: apri da GitHub Pages o usa Live Server in VS Code
-async function ghFetch(url, opts={}){
+async function fetch(url, opts={}){
   if(window.location.protocol!=='file:') return fetch(url, {...opts});
   // Tenta comunque - alcuni browser/config potrebbero permetterlo
   try{
@@ -2670,7 +2670,7 @@ async function findAndLoadGist(token){
     }
     setBkStatus('','Ricerca backup nei tuoi Gist...');
     showToast('Ricerca backup in corso...','');
-    const resp=await ghFetch('https://api.github.com/gists?per_page=100',{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+    const resp=await fetch('https://api.github.com/gists?per_page=100',{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
     if(!resp.ok){
       const err=await resp.json().catch(()=>({}));
       setBkStatus('err','Errore token: '+(err.message||'HTTP '+resp.status));
@@ -3503,26 +3503,25 @@ document.getElementById('valoreFinale').value='50000';
   if(el) el.addEventListener('input',()=>{if(id==='dateFrom'||id==='dateTo')syncSectionDates();render();});
 });
 setTheme(localStorage.getItem(LS_THEME)||'light');
-(function initBackup(){
+function startApp(){
   const tok=localStorage.getItem(LS_TOKEN)||'';
   const gid=localStorage.getItem(LS_GIST_ID)||'';
   const sat=localStorage.getItem(LS_SAVED)||'';
   if(!tok){
-    // Nessun token → mostra login screen
     showLoginScreen('');
     return;
   }
-  // Token presente → nascondi login e carica
   hideLoginScreen();
-  document.getElementById('ghToken').value=tok;
+  const tokenEl=document.getElementById('ghToken');
+  if(tokenEl) tokenEl.value=tok;
   if(gid){
-    setBkStatus('','Caricamento dati aggiornati...');
-    setTimeout(()=>loadGist(true),500);
+    setBkStatus('','Caricamento...');
+    loadGist(true);
   } else {
-    setTimeout(()=>findAndLoadGist(tok),500);
+    findAndLoadGist(tok);
   }
   if(sat) setBkStatus('ok','Ultimo salvataggio: '+sat);
-})();
+}
 // ── BUDGET DATA ────────────────────────────────────
 // Structure: B[year][rowId] = [gen,feb,mar,apr,mag,giu,lug,ago,set,ott,nov,dic]
 let B = {};
@@ -4369,6 +4368,8 @@ function importBudgetXLSX(inp){
 renderBrokerList();
 syncSectionDates();
 render();
+startApp();
+
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

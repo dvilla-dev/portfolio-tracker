@@ -1567,10 +1567,17 @@ function acKey(e){
 }
 
 // ── RENDER MAIN ───────────────────────────────────
+let _renderGuard=false;
 function render(){
-  const m=calcM();
-  renderKPI(m); renderIncome(m); renderInc(); renderPF(); renderPR(); renderTX();
-  updateFilterDDs(); _syncBrokerSelects(); renderSnaps();
+  if(_renderGuard){console.warn('render() re-entry blocked');return;}
+  _renderGuard=true;
+  try{
+    const m=calcM();
+    renderKPI(m); renderIncome(m); renderInc(); renderPF(); renderPR(); renderTX();
+    updateFilterDDs(); _syncBrokerSelects(); renderSnaps();
+  }finally{
+    _renderGuard=false;
+  }
 }
 
 function renderKPI(m){
@@ -3469,17 +3476,14 @@ function delSnap(id){
 }
 
 function syncGlobalBroker(val){
-  // Propaga il broker globale a tutti i filtri sezione
   pf.b=val; pr.b=val; inc.b=val; tx.br=val;
-  // Aggiorna i select delle tabelle
   ['fPFBroker','fPRBroker','fIncBroker','fTXBroker'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.value=val;
   });
-  // Sincronizza anche filtro snapshot valorizzazioni
   const fSnap=document.getElementById('fSnapBroker');
   if(fSnap) fSnap.value=val;
-  render();
+  if(!_renderGuard) render();
 }
 
 function _updateGlobalBrokerSel(){
@@ -3519,7 +3523,7 @@ function safeRender(){if(_rendering)return;_rendering=true;try{render();}finally
 document.getElementById('valoreFinale').value='50000';
 ['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{
   const el=document.getElementById(id);
-  if(el) el.addEventListener('input',()=>{if(_rendering)return;if(id==='dateFrom'||id==='dateTo')syncSectionDates();safeRender();});
+  if(el) el.addEventListener('input',()=>{if(_renderGuard||_rendering)return;if(id==='dateFrom'||id==='dateTo')syncSectionDates();render();});
 });
 setTheme(localStorage.getItem(LS_THEME)||'light');
 function startApp(){

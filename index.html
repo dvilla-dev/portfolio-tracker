@@ -2473,31 +2473,38 @@ function onTokenChange(){
 function onGistIdChange(){ /* campo rimosso, funzione vuota per compatibilità */ }
 
 async function findAndLoadGist(token){
-  // Cerca tra i gist dell'utente quello con il file GIST_FILE
   try{
     const gid=localStorage.getItem(LS_GIST_ID)||'';
     if(gid){
-      // GistID già in localStorage — carica direttamente
       await loadGist(true); return;
     }
     setBkStatus('','Ricerca backup nei tuoi Gist...');
+    showToast('Ricerca backup in corso...','');
     const resp=await fetch('https://api.github.com/gists?per_page=100',{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
-    if(!resp.ok){setBkStatus('err','Token non valido o errore di rete');return;}
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({}));
+      setBkStatus('err','Errore token: '+(err.message||'HTTP '+resp.status));
+      showToast('Token non valido o senza permessi: '+(err.message||'HTTP '+resp.status),'err');
+      return;
+    }
     const gists=await resp.json();
+    showToast('Trovati '+gists.length+' gist. Cerco backup...','');
     const found=gists.find(g=>g.files&&g.files[GIST_FILE]);
     if(found){
       localStorage.setItem(LS_GIST_ID, found.id);
       localStorage.setItem(LS_GIST_URL, found.html_url);
-      // Popola il campo ghGistId se esiste
       const gidEl=document.getElementById('ghGistId');
       if(gidEl) gidEl.value=found.id;
       setBkStatus('','Backup trovato — caricamento...');
       await loadGist(true);
     } else {
-      setBkStatus('ok','Token valido — nessun backup trovato. Clicca ↑ Salva per crearne uno.');
-      showToast('Token valido. Nessun backup trovato — verrà creato al primo salvataggio.','ok');
+      setBkStatus('ok','Token valido ('+gists.length+' gist). Nessun backup trovato — clicca ↑ Salva per crearne uno.');
+      showToast('Token OK · '+gists.length+' gist trovati · nessun backup Portfolio Tracker','ok');
     }
-  }catch(e){setBkStatus('err','Errore: '+e.message);}
+  }catch(e){
+    setBkStatus('err','Errore: '+e.message);
+    showToast('Errore connessione: '+e.message,'err');
+  }
 }
 
 function toggleSettings(){

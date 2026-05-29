@@ -2039,24 +2039,32 @@ function applyPayload(data){
   T=data.transactions; nid=data.nextId||T.reduce((mx,t)=>Math.max(mx,t.id),0)+1;
   if(Array.isArray(data.brokers)&&data.brokers.length) brokers=data.brokers;
   if(data.budgetData){B=data.budgetData;} if(data.budgetYear){_budgetYear=data.budgetYear;} if(data.budgetLabels){_bLabels=data.budgetLabels;} if(data.budgetCustom){_bCustom=data.budgetCustom;} if(data.lq){LQ=data.lq;} if(data.snaps){SNAPS=data.snaps;} if(data.prezziAttuali){prezziAttuali=data.prezziAttuali;} if(data.assets){ASSETS=data.assets;}
-  // Imposta valori senza triggherare eventi input
-  if(data.settings){
-    _rendering=true;
-    ['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el&&data.settings[id]!=null) el.value=data.settings[id];
-    });
+  // Imposta valori con guard per evitare trigger input events
+  _renderGuard=true;
+  _rendering=true;
+  try{
+    if(data.settings){
+      ['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el&&data.settings[id]!=null) el.value=data.settings[id];
+      });
+    }
+    syncBrokersFromT();
+    renderBrokerList();
+    _updateGlobalBrokerSel();
+  }finally{
+    _renderGuard=false;
     _rendering=false;
   }
-  try{syncBrokersFromT();}catch(e){}
-  try{renderBrokerList();}catch(e){}
-  try{_updateGlobalBrokerSel();}catch(e){}
-  try{render();}catch(e){console.error('render:',e);}
-  const pages=['portafoglio','liquidita','asset','budget'];
-  const active=pages.find(p=>{const el=document.getElementById('page-'+p);return el&&el.style.display!=='none';})||'portafoglio';
-  if(active==='liquidita')try{renderLiquidita();}catch(e){}
-  if(active==='asset')try{renderAsset();}catch(e){}
-  if(active==='budget')try{renderBudget();}catch(e){}
+  // Render differito: lascia che il browser scarichi la coda eventi prima
+  setTimeout(()=>{
+    try{render();}catch(e){console.error('applyPayload render:',e);}
+    const pages=['portafoglio','liquidita','asset','budget'];
+    const active=pages.find(p=>{const el=document.getElementById('page-'+p);return el&&el.style.display!=='none';})||'portafoglio';
+    if(active==='liquidita')try{renderLiquidita();}catch(e){}
+    if(active==='asset')try{renderAsset();}catch(e){}
+    if(active==='budget')try{renderBudget();}catch(e){}
+  }, 0);
 }
 async function saveGist(){
   const token=document.getElementById('ghToken').value.trim();

@@ -1824,8 +1824,12 @@ function renderTX(){
 // ── FILTER DROPDOWNS ──────────────────────────────
 function fillSel(id,values,curVal){
   const el=document.getElementById(id); if(!el)return;
-  const cur=curVal||el.value, first=el.options[0].text;
-  el.innerHTML='<option value="">'+first+'</option>'+values.map(v=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+v+'</option>').join('');
+  const cur=curVal||el.value, first=el.options[0]?.text||'';
+  const newHtml='<option value="">'+first+'</option>'+values.map(v=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+v+'</option>').join('');
+  if(el.innerHTML===newHtml) return;
+  const saved=el.onchange; el.onchange=null;
+  el.innerHTML=newHtml; el.value=cur;
+  el.onchange=saved;
 }
 function updateFilterDDs(){
   const bk=[...new Set(T.map(t=>t.broker).filter(Boolean))].sort();
@@ -3483,7 +3487,14 @@ function _updateGlobalBrokerSel(){
   const sel=document.getElementById('gBroker');
   if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML='<option value="">Tutti</option>'+bks.map(b=>'<option value="'+b+'"'+(b===cur?' selected':'')+'>'+b+'</option>').join('');
+  const newHtml='<option value="">Tutti</option>'+bks.map(b=>'<option value="'+b+'"'+(b===cur?' selected':'')+'>'+b+'</option>').join('');
+  if(sel.innerHTML===newHtml) return; // nessun cambiamento, evita re-render
+  // Rimuovi temporaneamente onchange per evitare ricorsione
+  const saved=sel.onchange;
+  sel.onchange=null;
+  sel.innerHTML=newHtml;
+  sel.value=cur;
+  sel.onchange=saved;
 }
 
 function setBudgetYear(y){

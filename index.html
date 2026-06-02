@@ -1581,8 +1581,22 @@ function acKey(e){
 
 // ── RENDER MAIN ───────────────────────────────────
 let _renderGuard=false;
+let _renderCallCount=0, _renderCallReset=null;
 function render(){
-  if(_renderGuard){console.warn('render() re-entry blocked');return;}
+  // Diagnostica: conta chiamate in finestra di 100ms
+  _renderCallCount++;
+  if(_renderCallCount===1){
+    _renderCallReset=setTimeout(()=>{_renderCallCount=0;},100);
+  }
+  if(_renderCallCount>20){
+    console.error('🔴 RENDER LOOP! '+_renderCallCount+' chiamate. Stack:');
+    console.error(new Error().stack);
+    const fns=(new Error().stack.match(/at (\w+)/g)||[]).slice(0,12);
+    alert('LOOP RENDER TROVATO!\nCatena:\n'+[...new Set(fns)].join(' → '));
+    _renderCallCount=0;
+    return; // ferma il loop
+  }
+  if(_renderGuard){return;}
   _renderGuard=true;
   try{
     const m=calcM();

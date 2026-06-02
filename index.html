@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfolio Tracker</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Portfolio">
 <meta name="theme-color" content="#0F4C35">
@@ -558,7 +559,7 @@ body{min-height:100vh}
               <th><input type="text" placeholder="data…" oninput="pr.da=this.value;renderPR()"></th>
               <th><input type="text" placeholder="strumento…" oninput="pr.s=this.value;renderPR()"></th>
               <th><input type="text" placeholder="ISIN…" oninput="pr.i=this.value;renderPR()"></th>
-              <th><select id="fPRBroker" onchange="if(_renderGuard)return;pr.b=this.value;document.getElementById('gBroker').value=this.value;renderPR()"><option value="">broker…</option></select></th>
+              <th><select id="fPRBroker" onchange="if(_renderGuard)return;pr.b=this.value;renderPR()"><option value="">broker…</option></select></th>
               <th><input type="text" placeholder="qtà…" oninput="pr.q=this.value;renderPR()"></th>
               <th><input type="text" placeholder="lordo…" oninput="pr.l=this.value;renderPR()"></th>
               <th><input type="text" placeholder="comm…" oninput="pr.c=this.value;renderPR()"></th>
@@ -609,7 +610,7 @@ body{min-height:100vh}
               <th></th>
               <th><input type="text" placeholder="strumento…" oninput="inc.s=this.value;renderInc()"></th>
               <th><input type="text" placeholder="ISIN…"      oninput="inc.i=this.value;renderInc()"></th>
-              <th><select id="fIncBroker" onchange="if(_renderGuard)return;inc.b=this.value;document.getElementById('gBroker').value=this.value;renderInc()"><option value="">broker…</option></select></th>
+              <th><select id="fIncBroker" onchange="if(_renderGuard)return;inc.b=this.value;renderInc()"><option value="">broker…</option></select></th>
               <th><select id="fIncTipo"   onchange="inc.t=this.value;renderInc()"><option value="">tipo…</option><option value="DIV">DIV</option><option value="CED">CED</option></select></th>
               <th></th>
               <th><input type="text" placeholder="lordo…"  oninput="inc.l=this.value;renderInc()"></th>
@@ -651,7 +652,7 @@ body{min-height:100vh}
             <tr class="frow">
               <th><input type="text" placeholder="strumento…" oninput="pf.s=this.value;renderPF()"></th>
               <th><input type="text" placeholder="ISIN…" oninput="pf.i=this.value;renderPF()"></th>
-              <th><select id="fPFBroker" onchange="if(_renderGuard)return;pf.b=this.value;document.getElementById('gBroker').value=this.value;renderPF()"><option value="">broker…</option></select></th>
+              <th><select id="fPFBroker" onchange="if(_renderGuard)return;pf.b=this.value;renderPF()"><option value="">broker…</option></select></th>
               <th><select id="fPFVal" onchange="pf.v=this.value;renderPF()"><option value="">val.</option></select></th>
               <th></th>
               <th></th>
@@ -706,7 +707,7 @@ body{min-height:100vh}
               <th><select id="fTXTipo" onchange="tx.ti=this.value;renderTX()"><option value="">tipo…</option><option value="BUY">BUY</option><option value="SELL">SELL</option><option value="DIV">DIV</option><option value="CED">CED</option><option value="RCAP">RCAP</option></select></th>
               <th><input type="text" placeholder="strumento…" oninput="tx.st=this.value;renderTX()"></th>
               <th><input type="text" placeholder="ISIN…" oninput="tx.is=this.value;renderTX()"></th>
-              <th><select id="fTXBroker" onchange="if(_renderGuard)return;tx.br=this.value;document.getElementById('gBroker').value=this.value;renderTX()"><option value="">broker…</option></select></th>
+              <th><select id="fTXBroker" onchange="if(_renderGuard)return;tx.br=this.value;renderTX()"><option value="">broker…</option></select></th>
               <th><select id="fTXVal" onchange="tx.va=this.value;renderTX()"><option value="">val.</option></select></th>
               <th><input type="text" placeholder="qtà…" oninput="tx.qt=this.value;renderTX()"></th>
               <th><input type="text" placeholder="prezzo…" oninput="tx.pr2=this.value;renderTX()"></th>
@@ -2567,17 +2568,6 @@ function showToast(msg,type){
 const LS_THEME='pt-theme';
 let _settingsOpen=false;
 // ── AUTH & LOGIN ──────────────────────────────────
-// CORS: da file:// i browser bloccano le chiamate API cross-origin
-// Soluzione: apri da GitHub Pages o usa Live Server in VS Code
-async function fetch(url, opts={}){
-  if(window.location.protocol!=='file:') return fetch(url, {...opts});
-  // Tenta comunque - alcuni browser/config potrebbero permetterlo
-  try{
-    return await fetch(url, {...opts});
-  }catch(e){
-    throw new Error('CORS bloccato in locale. Apri l\'app da: dvilla-dev.github.io/portfolio-tracker');
-  }
-}
 
 const GIST_FILE_NAME='portfolio-tracker-data.json';
 

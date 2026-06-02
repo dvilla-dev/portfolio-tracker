@@ -250,41 +250,9 @@ body{min-height:100vh}
 .placeholder-title{font-size:18px;font-weight:500;color:var(--text-secondary)}
 .placeholder-sub{font-size:13px;color:var(--text-muted);text-align:center;max-width:320px;line-height:1.6}
 
-/* ── LOGIN ──────────────────────────────── */
-#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:0}
-#loginScreen.hidden{display:none}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:16px;text-align:center}
-.login-logo{font-size:28px;font-weight:700;color:var(--text-primary);margin-bottom:4px}
-.login-sub{font-size:13px;color:var(--text-muted);margin-bottom:8px}
-.login-input{padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--mono);background:var(--surface);color:var(--text-primary);width:100%;box-sizing:border-box;outline:none}
-.login-input:focus{border-color:var(--accent)}
-.login-btn{padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:opacity .15s}
-.login-btn:hover{opacity:.9}
-.login-btn:disabled{opacity:.5;cursor:not-allowed}
-.login-status{font-size:12px;font-family:var(--mono);min-height:18px;color:var(--text-muted)}
-.login-status.err{color:var(--red)}
-.login-status.ok{color:var(--accent)}
 </style>
 </head>
 <body>
-<div id="loginScreen">
-  <div class="login-box">
-    <div class="login-logo">📊 Finance</div>
-    <div class="login-sub">Inserisci il tuo Personal Access Token GitHub</div>
-    <div id="localWarning" style="display:none;font-size:11px;background:#fef3c7;color:#92400e;padding:8px 10px;border-radius:6px;text-align:left;line-height:1.6">
-      ⚠ <strong>Stai aprendo in locale.</strong> Il Gist non è accessibile da file://.<br>
-      Apri da <strong>dvilla-dev.github.io/portfolio-tracker</strong> oppure carica un backup JSON.
-    </div>
-    <input type="password" id="loginToken" class="login-input" placeholder="ghp_… Personal Access Token" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">Accedi con GitHub</button>
-    <div style="display:flex;align-items:center;gap:8px;margin:2px 0"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:11px;color:var(--text-muted)">oppure</span><div style="flex:1;height:1px;background:var(--border)"></div></div>
-    <label class="login-btn" style="background:var(--surface2);color:var(--text-primary);border:1px solid var(--border);cursor:pointer">
-      📂 Carica backup JSON
-      <input type="file" accept=".json" style="display:none" onchange="loginWithJSON(this)">
-    </label>
-    <div class="login-status" id="loginStatus"></div>
-  </div>
-</div>
 
 <div class="sidebar">
   <div class="sidebar-logo">
@@ -332,10 +300,13 @@ body{min-height:100vh}
       <div class="sp-label">☁ GitHub Gist</div>
       <div style="display:flex;flex-direction:column;gap:7px">
         <div style="font-size:10px;color:var(--text-muted);padding:4px 6px;background:var(--surface2);border-radius:5px;line-height:1.5">
-          Inserisci il token su qualsiasi dispositivo — i dati si caricano automaticamente
+          Inserisci il token GitHub e premi Accedi — i dati si caricano automaticamente
         </div>
-        <input type="password" id="ghToken" class="bk-input" placeholder="ghp_… Personal Access Token" style="width:100%" readonly>
-        <button onclick="doLogout()" class="btn-bk" style="background:#fee2e2;color:#dc2626;border-color:#dc2626;width:100%;font-weight:600">🚪 Disconnetti</button>
+        <input type="password" id="ghToken" class="bk-input" placeholder="ghp_… Personal Access Token" style="width:100%" onkeydown="if(event.key==='Enter')doLogin()">
+        <div style="display:flex;gap:6px">
+          <button onclick="doLogin()" class="btn-bk" style="flex:1;background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600">Accedi</button>
+          <button onclick="doLogout()" class="btn-bk" style="flex:1;background:#fee2e2;color:#dc2626;border-color:#dc2626;font-weight:600">🚪 Disconnetti</button>
+        </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button id="btnGhSave" class="btn-bk save" onclick="saveGist()" style="flex:1">↑ Salva</button>
           <button id="btnGhLoad" class="btn-bk load" onclick="loadGist()" style="flex:1">↓ Carica</button>
@@ -2572,12 +2543,8 @@ let _settingsOpen=false;
 const GIST_FILE_NAME='portfolio-tracker-data.json';
 
 function showLoginScreen(msg){
-  const ls=document.getElementById('loginScreen');
-  if(ls) ls.classList.remove('hidden');
-  // Mostra warning se in locale
-  const lw=document.getElementById('localWarning');
-  if(lw) lw.style.display=window.location.protocol==='file:'?'block':'none';
-  if(msg){const st=document.getElementById('loginStatus');if(st){st.textContent=msg;st.className='login-status err';}}
+  // Login ora nelle impostazioni: mostra solo lo stato
+  if(msg) setBkStatus('', msg);
 }
 
 function loginWithJSON(inp){
@@ -2592,35 +2559,30 @@ function loginWithJSON(inp){
       setBkStatus('ok','Caricato da JSON — '+data.transactions.length+' movimenti');
       hideLoginScreen();
       showToast('✓ '+data.transactions.length+' movimenti caricati dal JSON','ok');
-    }catch(ex){setLoginStatus('Errore: '+ex.message,'err');}
+    }catch(ex){setBkStatus('err','Errore: '+ex.message);showToast('Errore: '+ex.message,'err');}
   };
   rd.readAsText(file);
 }
 
-function hideLoginScreen(){
-  const ls=document.getElementById('loginScreen');
-  if(ls) ls.classList.add('hidden');
-}
+function hideLoginScreen(){ /* login nelle impostazioni, nessuna schermata da nascondere */ }
 
 async function doLogin(){
-  const tok=document.getElementById('loginToken').value.trim();
-  if(!tok||tok.length<10){setLoginStatus('Inserisci un token valido (ghp_...)','err');return;}
-  const btn=document.getElementById('loginBtn');
-  btn.disabled=true; btn.textContent='Accesso...';
-  setLoginStatus('Connessione a GitHub...','');
+  const tok=document.getElementById('ghToken').value.trim();
+  if(!tok||tok.length<10){setBkStatus('err','Inserisci un token valido (ghp_...)');return;}
+  setBkStatus('','Connessione a GitHub...');
   try{
     const headers={'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'};
     // 1. Lista gist
     const r=await fetch('https://api.github.com/gists?per_page=100',{headers});
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error((e.message||'HTTP '+r.status)+' — verifica permesso gist nel token');}
     const gists=await r.json();
-    setLoginStatus('Connesso · '+gists.length+' gist trovati...','ok');
+    setBkStatus('ok','Connesso · '+gists.length+' gist trovati...');
     localStorage.setItem(LS_TOKEN,tok);
     // 2. Cerca backup
     const found=gists.find(g=>Object.keys(g.files||{}).some(f=>f.includes('portfolio-tracker')));
     if(found){
       localStorage.setItem(LS_GIST_ID,found.id);
-      setLoginStatus('Backup trovato — download...','ok');
+      setBkStatus('ok','Backup trovato — download...');
       // 3. Carica gist completo (necessario per contenuto)
       const r2=await fetch('https://api.github.com/gists/'+found.id,{headers});
       if(!r2.ok) throw new Error('Errore caricamento gist');
@@ -2630,7 +2592,7 @@ async function doLogin(){
       let raw=fileObj.content;
       // File grande: scarica raw
       if(!raw||fileObj.truncated||raw.trim().length<10){
-        setLoginStatus('File grande — download completo...','');
+        setBkStatus('','File grande — download completo...');
         const r3=await fetch(fileObj.raw_url,{headers:{'Authorization':'Bearer '+tok}});
         if(!r3.ok) throw new Error('Errore download raw');
         raw=await r3.text();
@@ -2650,16 +2612,13 @@ async function doLogin(){
       showToast('Token OK · Nessun backup trovato · clicca ↑ Salva per crearne uno','ok');
     }
   }catch(e){
-    setLoginStatus(e.message,'err');
-    btn.disabled=false; btn.textContent='Accedi con GitHub';
+    setBkStatus('err',e.message);
+    showToast('Errore: '+e.message,'err');
     console.error('Login error:',e);
   }
 }
 
-function setLoginStatus(msg,type){
-  const st=document.getElementById('loginStatus');
-  if(st){st.textContent=msg;st.className='login-status '+(type||'');}
-}
+function setLoginStatus(msg,type){ setBkStatus(type==='err'?'err':type==='ok'?'ok':'', msg); }
 
 function doLogout(){
   if(!confirm('Disconnettersi? Il token verrà rimosso dal browser.'))return;
@@ -2667,11 +2626,8 @@ function doLogout(){
   localStorage.removeItem(LS_GIST_ID);
   localStorage.removeItem(LS_GIST_URL);
   localStorage.removeItem(LS_SAVED);
-  document.getElementById('ghToken').value='';
-  document.getElementById('loginToken').value='';
-  setBkStatus('','Disconnesso');
-  showLoginScreen('Inserisci il token per accedere');
-  toggleSettings(); // chiudi settings
+  const t=document.getElementById('ghToken'); if(t)t.value='';
+  setBkStatus('','Disconnesso — inserisci il token per riconnetterti');
 }
 
 
@@ -4031,9 +3987,8 @@ function startApp(){
   const tok=localStorage.getItem(LS_TOKEN)||'';
   const gid=localStorage.getItem(LS_GIST_ID)||'';
   const sat=localStorage.getItem(LS_SAVED)||'';
-  if(!tok){ showLoginScreen(''); return; }
-  hideLoginScreen();
   const tokenEl=document.getElementById('ghToken');
+  if(!tok){ setBkStatus('','Inserisci il token GitHub nelle impostazioni ⚙ per sincronizzare'); return; }
   if(tokenEl) tokenEl.value=tok;
   if(gid){ setBkStatus('','Caricamento...'); loadGist(true); }
   else { findAndLoadGist(tok); }

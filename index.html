@@ -999,20 +999,6 @@ body{min-height:100vh}
 
 <script>
 
-// ── DIAGNOSTICA STACK OVERFLOW ────────────────────
-// Intercetta la ricorsione e mostra la catena esatta
-window.addEventListener('error', function(ev){
-  if(ev.message && ev.message.includes('call stack')){
-    const trace = (ev.error && ev.error.stack) ? ev.error.stack : 'no stack';
-    // Estrai i nomi funzione dallo stack
-    const fnNames = (trace.match(/at (\w+)/g) || []).map(s=>s.replace('at ','')).slice(0, 15);
-    alert('STACK OVERFLOW DIAGNOSTICA:\n\nUltime funzioni nella catena:\n' + fnNames.join(' → ') + '\n\nStack completo (primi 800 char):\n' + trace.substring(0, 800));
-    console.error('STACK OVERFLOW CHAIN:', fnNames);
-    console.error('FULL STACK:', trace);
-  }
-});
-
-
 let T=[
   {id:1, data:'2014-02-27',tipo:'BUY',strumento:'ASSICUAZIONE GENERALI',isin:'GENERALIASSIC',broker:'Generali',val:'EUR',qty:1.0,prezzo:63065.71,comm:0,tasse:0},
   {id:2, data:'2024-05-08',tipo:'BUY',strumento:'ITALY, REPUBLIC OF (GOVERNMENT) 4.15% 24/39',isin:'IT0005582421',broker:'Intesa Sanpaolo',val:'EUR',qty:100.0,prezzo:101.1454,comm:13.08,tasse:0},
@@ -1581,27 +1567,15 @@ function acKey(e){
 
 // ── RENDER MAIN ───────────────────────────────────
 let _renderGuard=false;
-let _renderCallCount=0, _renderCallReset=null;
 function render(){
-  // Diagnostica: conta chiamate in finestra di 100ms
-  _renderCallCount++;
-  if(_renderCallCount===1){
-    _renderCallReset=setTimeout(()=>{_renderCallCount=0;},100);
-  }
-  if(_renderCallCount>20){
-    console.error('🔴 RENDER LOOP! '+_renderCallCount+' chiamate. Stack:');
-    console.error(new Error().stack);
-    const fns=(new Error().stack.match(/at (\w+)/g)||[]).slice(0,12);
-    alert('LOOP RENDER TROVATO!\nCatena:\n'+[...new Set(fns)].join(' → '));
-    _renderCallCount=0;
-    return; // ferma il loop
-  }
-  if(_renderGuard){return;}
+  if(_renderGuard)return;
   _renderGuard=true;
   try{
     const m=calcM();
     renderKPI(m); renderIncome(m); renderInc(); renderPF(); renderPR(); renderTX();
     updateFilterDDs(); _syncBrokerSelects(); renderSnaps();
+  }catch(err){
+    console.error('render error:',err);
   }finally{
     _renderGuard=false;
   }
@@ -3552,8 +3526,37 @@ function syncSectionDates(){
   renderSnaps();
 }
 
-// ── INIT ──────────────────────────────────────────
-let _rendering=false;
+// ── DETECTOR RICORSIONE UNIVERSALE ────────────────
+// Avvolge le funzioni chiave per trovare la catena esatta del loop
+(function installRecursionDetector(){
+  const watched=['render','calcM','calcPF','renderKPI','renderIncome','renderInc',
+    'renderPF','renderPR','renderTX','updateFilterDDs','_syncBrokerSelects',
+    'renderSnaps','fillSel','_updateGlobalBrokerSel','_brokerOpts',
+    'syncBrokersFromT','renderBrokerList','syncGlobalBroker','syncSectionDates',
+    'applyPayload','renderLiquidita','renderAsset','renderBudget','renderBudgetTable',
+    'renderBudgetKPI','renderBudgetChart','getBudgetSchema'];
+  const depth={};
+  let reported=false;
+  watched.forEach(name=>{
+    const orig=window[name]||(typeof eval(`typeof ${name}`)==='function'?eval(name):null);
+    if(typeof orig!=='function')return;
+    const wrapped=function(...args){
+      depth[name]=(depth[name]||0)+1;
+      if(depth[name]>40 && !reported){
+        reported=true;
+        const chain=Object.entries(depth).filter(([,v])=>v>5).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+'('+v+')');
+        const msg='LOOP TROVATO!\n\nFunzioni in ricorsione:\n'+chain.join('\n');
+        console.error(msg);
+        setTimeout(()=>alert(msg),10);
+        depth[name]=0;
+        throw new Error('Loop interrotto: '+name);
+      }
+      try{return orig.apply(this,args);}
+      finally{depth[name]--;}
+    };
+    try{eval(name+'=wrapped;');}catch(e){window[name]=wrapped;}
+  });
+})();
 function safeRender(){if(_rendering)return;_rendering=true;try{render();}finally{_rendering=false;}}
 document.getElementById('valoreFinale').value='50000';
 ['dateFrom','dateTo','valoreFinale','valoreIniziale'].forEach(id=>{

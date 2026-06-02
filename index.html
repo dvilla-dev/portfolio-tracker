@@ -999,6 +999,19 @@ body{min-height:100vh}
 
 <script>
 
+// ── DIAGNOSTICA STACK OVERFLOW ────────────────────
+// Intercetta la ricorsione e mostra la catena esatta
+window.addEventListener('error', function(ev){
+  if(ev.message && ev.message.includes('call stack')){
+    const trace = (ev.error && ev.error.stack) ? ev.error.stack : 'no stack';
+    // Estrai i nomi funzione dallo stack
+    const fnNames = (trace.match(/at (\w+)/g) || []).map(s=>s.replace('at ','')).slice(0, 15);
+    alert('STACK OVERFLOW DIAGNOSTICA:\n\nUltime funzioni nella catena:\n' + fnNames.join(' → ') + '\n\nStack completo (primi 800 char):\n' + trace.substring(0, 800));
+    console.error('STACK OVERFLOW CHAIN:', fnNames);
+    console.error('FULL STACK:', trace);
+  }
+});
+
 
 let T=[
   {id:1, data:'2014-02-27',tipo:'BUY',strumento:'ASSICUAZIONE GENERALI',isin:'GENERALIASSIC',broker:'Generali',val:'EUR',qty:1.0,prezzo:63065.71,comm:0,tasse:0},

@@ -2003,7 +2003,7 @@ function setBkStatus(state,msg,url){
 }
 function setBtnBusy(id,busy,label){const b=document.getElementById(id);if(!b)return;b.disabled=busy;b.textContent=busy?'...':label;}
 function buildPayload(){
-  return JSON.stringify({version:2,savedAt:new Date().toISOString(),transactions:T,nextId:nid,brokers,budgetData:B,budgetYear:_budgetYear,budgetLabels:_bLabels,budgetCustom:_bCustom,lq:LQ,snaps:SNAPS,prezziAttuali,assets:ASSETS,
+  return JSON.stringify({version:2,savedAt:new Date().toISOString(),transactions:T,nextId:nid,brokers,budgetData:B,budgetYear:_budgetYear,budgetLabels:_bLabels,budgetCustom:_bCustom,budgetFixed:_bFixed,lq:LQ,snaps:SNAPS,prezziAttuali,assets:ASSETS,
     settings:{dateFrom:document.getElementById('dateFrom').value,dateTo:document.getElementById('dateTo').value,
     valoreFinale:document.getElementById('valoreFinale').value,valoreIniziale:document.getElementById('valoreIniziale').value}},null,2);
 }
@@ -2011,7 +2011,7 @@ function applyPayload(data){
   if(!Array.isArray(data.transactions))throw new Error('Formato dati non valido');
   T=data.transactions; nid=data.nextId||T.reduce((mx,t)=>Math.max(mx,t.id),0)+1;
   if(Array.isArray(data.brokers)&&data.brokers.length) brokers=data.brokers;
-  if(data.budgetData){B=data.budgetData;} if(data.budgetYear){_budgetYear=data.budgetYear;} if(data.budgetLabels){_bLabels=data.budgetLabels;} if(data.budgetCustom){_bCustom=data.budgetCustom;} if(data.lq){LQ=data.lq;} if(data.snaps){SNAPS=data.snaps;} if(data.prezziAttuali){prezziAttuali=data.prezziAttuali;} if(data.assets){ASSETS=data.assets;}
+  if(data.budgetData){B=data.budgetData;} if(data.budgetYear){_budgetYear=data.budgetYear;} if(data.budgetLabels){_bLabels=data.budgetLabels;} if(data.budgetCustom){_bCustom=data.budgetCustom;} if(data.budgetFixed){_bFixed=data.budgetFixed;} if(data.lq){LQ=data.lq;} if(data.snaps){SNAPS=data.snaps;} if(data.prezziAttuali){prezziAttuali=data.prezziAttuali;} if(data.assets){ASSETS=data.assets;}
   // Imposta valori con guard per evitare trigger input events
   _renderGuard=true;
   _rendering=true;
@@ -2176,7 +2176,7 @@ function importJSON(inp){
 // ── PDF ───────────────────────────────────────────
 // ── BUDGET UNDO/REDO ──────────────────────────────
 const _budgetUndoStack=[], _budgetRedoStack=[], MAX_BHIST=30;
-function _bSnapshot(){ return JSON.stringify({B,_bLabels,_bCustom}); }
+function _bSnapshot(){ return JSON.stringify({B,_bLabels,_bCustom,_bFixed}); }
 function pushBudgetHistory(){
   _budgetUndoStack.push(_bSnapshot());
   if(_budgetUndoStack.length>MAX_BHIST) _budgetUndoStack.shift();
@@ -2187,14 +2187,14 @@ function undoBudget(){
   if(!_budgetUndoStack.length) return;
   _budgetRedoStack.push(_bSnapshot());
   const s=JSON.parse(_budgetUndoStack.pop());
-  B=s.B; _bLabels=s._bLabels; if(s._bCustom)_bCustom=s._bCustom;
+  B=s.B; _bLabels=s._bLabels; if(s._bCustom)_bCustom=s._bCustom; if(s._bFixed)_bFixed=s._bFixed;
   _updateBudgetUndoUI(); markUnsaved(); renderBudget();
 }
 function redoBudget(){
   if(!_budgetRedoStack.length) return;
   _budgetUndoStack.push(_bSnapshot());
   const s=JSON.parse(_budgetRedoStack.pop());
-  B=s.B; _bLabels=s._bLabels; if(s._bCustom)_bCustom=s._bCustom;
+  B=s.B; _bLabels=s._bLabels; if(s._bCustom)_bCustom=s._bCustom; if(s._bFixed)_bFixed=s._bFixed;
   _updateBudgetUndoUI(); markUnsaved(); renderBudget();
 }
 function _updateBudgetUndoUI(){
@@ -3478,6 +3478,7 @@ const MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov
 let _budgetYear = 2026;
 let _bLabels = {};
 let _bCustom = [];
+let _bFixed = {};   // {rowId: true} = costo fisso; assente o false = variabile
 
 const BUDGET_DEFAULTS = {
   'e_stip_base':[5800,null,null,5800,null,null,5800,null,null,5800,null,null],
@@ -3726,6 +3727,25 @@ function _allUsciteRowIds(){
 function computeEntrateRow(mi){ return _allEntrateRowIds().reduce((s,id)=>s+(bget(id,mi)||0),0); }
 function computeUsciteRow(mi){ return _allUsciteRowIds().reduce((s,id)=>s+(bget(id,mi)||0),0); }
 
+// ── COSTI FISSI / VARIABILI ────────────────────────
+function isFixed(rowId){ return !!_bFixed[rowId]; }
+function toggleFixed(rowId){
+  pushBudgetHistory();
+  if(_bFixed[rowId]) delete _bFixed[rowId];
+  else _bFixed[rowId]=true;
+  markUnsaved(); renderBudget();
+}
+// Totale annuale uscite fisse / variabili
+function computeFixedTotal(){
+  return _allUsciteRowIds().filter(id=>isFixed(id))
+    .reduce((s,id)=>s+MONTHS.reduce((a,_,i)=>a+(bget(id,i)||0),0),0);
+}
+function computeVarTotal(){
+  return _allUsciteRowIds().filter(id=>!isFixed(id))
+    .reduce((s,id)=>s+MONTHS.reduce((a,_,i)=>a+(bget(id,i)||0),0),0);
+}
+
+
 function renderBudget(){
   const curMonth=new Date().getMonth();
   renderBudgetKPI(curMonth);
@@ -3738,11 +3758,15 @@ function renderBudgetKPI(curMonth){
   const totU=MONTHS.map((_,i)=>computeUsciteRow(i));
   const annE=totE.reduce((s,v)=>s+v,0), annU=totU.reduce((s,v)=>s+v,0), annN=annE-annU;
   const nc=annN>=0?'var(--accent)':'var(--red)';
+  const fisso=computeFixedTotal(), variabile=computeVarTotal();
+  const pctF=annU>0?(fisso/annU*100):0, pctV=annU>0?(variabile/annU*100):0;
   const el=document.getElementById('budgetKPI'); if(!el)return;
   el.innerHTML=
     '<div class="kpi-card" style="border-top:2px solid var(--accent)"><div class="kpi-label">Entrate Annuali</div><div class="kpi-value positive" style="font-size:20px">\u20ac '+fn(annE,0)+'</div><div class="kpi-sub" style="margin-top:4px">Media mensile \u20ac '+fn(annE/12,0)+'</div></div>'+
     '<div class="kpi-card" style="border-top:2px solid var(--red)"><div class="kpi-label">Uscite Annuali</div><div class="kpi-value negative" style="font-size:20px">\u20ac '+fn(annU,0)+'</div><div class="kpi-sub" style="margin-top:4px">Media mensile \u20ac '+fn(annU/12,0)+'</div></div>'+
-    '<div class="kpi-card" style="border-top:2px solid '+nc+'"><div class="kpi-label">NET Annuale</div><div class="kpi-value" style="font-size:20px;color:'+nc+'">'+(annN>=0?'+ ':'\u2212 ')+'\u20ac '+fn(Math.abs(annN),0)+'</div><div class="kpi-sub" style="margin-top:4px">Media mensile '+(annN>=0?'+ ':'\u2212 ')+'\u20ac '+fn(Math.abs(annN)/12,0)+'</div></div>';
+    '<div class="kpi-card" style="border-top:2px solid '+nc+'"><div class="kpi-label">NET Annuale</div><div class="kpi-value" style="font-size:20px;color:'+nc+'">'+(annN>=0?'+ ':'\u2212 ')+'\u20ac '+fn(Math.abs(annN),0)+'</div><div class="kpi-sub" style="margin-top:4px">Media mensile '+(annN>=0?'+ ':'\u2212 ')+'\u20ac '+fn(Math.abs(annN)/12,0)+'</div></div>'+
+    '<div class="kpi-card" style="border-top:2px solid #2563eb"><div class="kpi-label">Costi Fissi</div><div class="kpi-value" style="font-size:20px;color:#2563eb">\u20ac '+fn(fisso,0)+'</div><div class="kpi-sub" style="margin-top:4px">'+fn(pctF,1)+'% delle uscite</div></div>'+
+    '<div class="kpi-card" style="border-top:2px solid #d97706"><div class="kpi-label">Costi Variabili</div><div class="kpi-value" style="font-size:20px;color:#d97706">\u20ac '+fn(variabile,0)+'</div><div class="kpi-sub" style="margin-top:4px">'+fn(pctV,1)+'% delle uscite</div></div>';
 }
 
 function renderBudgetChart(){
@@ -3800,8 +3824,11 @@ function renderBudgetTable(curMonth){
       item.rows.forEach(r=>{
         const vals=MONTHS.map((_,i)=>bget(r.id,i));
         const ann=vals.reduce((s,v)=>s+(v||0),0);
+        const isU=r.id.startsWith('u_');
+        const fx=isFixed(r.id);
+        const fvBadge=isU?'<span onclick="toggleFixed(\''+r.id+'\')" title="'+(fx?'Costo Fisso (clic per Variabile)':'Costo Variabile (clic per Fisso)')+'" style="cursor:pointer;display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;'+(fx?'background:rgba(37,99,235,.15);color:#2563eb':'background:rgba(217,119,6,.15);color:#d97706')+'">'+(fx?'F':'V')+'</span>':'';
         rows.push('<tr class="brow-'+item.id+'" style="display:none">'+
-          '<td style="padding:6px 12px 6px 28px;font-size:11px;color:var(--text-secondary)"><span onclick="editSectionLabel(\''+r.id+'\')" title="Rinomina" style="cursor:pointer">'+bLabel(r.id,r.label)+'</span></td>'+
+          '<td style="padding:6px 12px 6px 28px;font-size:11px;color:var(--text-secondary)"><span onclick="editSectionLabel(\''+r.id+'\')" title="Rinomina" style="cursor:pointer">'+bLabel(r.id,r.label)+'</span>'+fvBadge+'</td>'+
           vals.map((v,i)=>'<td style="text-align:right;padding:4px 4px;border-top:1px solid var(--border);'+(i===curMonth&&_budgetYear===yNow?'background:var(--accent-light)':'')+'">'+
             '<span class="bcell" onclick="editBCell(event,\''+r.id+'\','+i+')" style="display:inline-block;min-width:50px;padding:3px 5px;border-radius:4px;font-size:11px;cursor:pointer;text-align:right;color:'+(v?'var(--text-primary)':'var(--text-muted)')+'">'+(v!==null?'\u20ac '+fn(v,2):'\u2014')+'</span></td>').join('')+
           '<td style="text-align:right;padding:4px 8px;font-size:11px;font-weight:500">'+(ann>0?'\u20ac '+fn(ann,0):'\u2014')+'</td>'+

@@ -3733,7 +3733,32 @@ function toggleFixed(rowId){
   pushBudgetHistory();
   if(_bFixed[rowId]) delete _bFixed[rowId];
   else _bFixed[rowId]=true;
-  markUnsaved(); renderBudget();
+  markUnsaved();
+  // Salva quali categorie sono aperte + posizione scroll
+  const open=[];
+  document.querySelectorAll('[id^="barr_"]').forEach(arr=>{
+    if(arr.style.transform&&arr.style.transform.includes('rotate')){
+      open.push(arr.id.replace('barr_',''));
+    }
+  });
+  // Trova il contenitore scrollabile della tabella
+  const wrap=document.getElementById('budgetTableWrap');
+  const inner=wrap?wrap.querySelector('div'):null;
+  const scrollY=window.scrollY||window.pageYOffset||0;
+  const innerScroll=inner?inner.scrollTop:0;
+  renderBudget();
+  // Riapri le categorie che erano aperte
+  open.forEach(secId=>{
+    const rows=document.querySelectorAll('.brow-'+secId);
+    const arr=document.getElementById('barr_'+secId);
+    rows.forEach(r=>r.style.display='table-row');
+    if(arr)arr.style.transform='rotate(90deg)';
+  });
+  // Ripristina la posizione di scroll
+  const newWrap=document.getElementById('budgetTableWrap');
+  const newInner=newWrap?newWrap.querySelector('div'):null;
+  if(newInner) newInner.scrollTop=innerScroll;
+  window.scrollTo(0,scrollY);
 }
 // Totale annuale uscite fisse / variabili
 function computeFixedTotal(){

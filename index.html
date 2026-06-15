@@ -1539,9 +1539,36 @@ function acKey(e){
 }
 
 // ── RENDER MAIN ───────────────────────────────────
+// Preserva la posizione di scroll di TUTTI i contenitori scrollabili durante un re-render.
+// Cattura window + tutti i .sec-body + tabella budget, restituisce funzione di ripristino.
+function preserveScroll(){
+  const winY=window.scrollY||window.pageYOffset||0;
+  const winX=window.scrollX||window.pageXOffset||0;
+  const saved=[];
+  document.querySelectorAll('.sec-body, #budgetTableWrap > div, [data-scrollkeep]').forEach(el=>{
+    if(el.id||el.getAttribute('data-skey')){
+      saved.push({key:el.id||el.getAttribute('data-skey'), top:el.scrollTop, left:el.scrollLeft});
+    }
+  });
+  // anche eventuali contenitori scrollabili identificati per id noti
+  ['budgetTableWrap'].forEach(id=>{
+    const w=document.getElementById(id);
+    if(w){const inner=w.querySelector('div'); if(inner)saved.push({key:'__'+id,top:inner.scrollTop,left:inner.scrollLeft});}
+  });
+  return function restore(){
+    saved.forEach(s=>{
+      let el=document.getElementById(s.key);
+      if(!el && s.key.startsWith('__')){const w=document.getElementById(s.key.slice(2));if(w)el=w.querySelector('div');}
+      if(el){el.scrollTop=s.top; el.scrollLeft=s.left;}
+    });
+    window.scrollTo(winX,winY);
+  };
+}
+
 function render(){
   if(_renderGuard)return;
   _renderGuard=true;
+  const restore=preserveScroll();
   try{
     const m=calcM();
     renderKPI(m); renderIncome(m); renderInc(); renderPF(); renderPR(); renderTX();
@@ -1550,6 +1577,7 @@ function render(){
     console.error('render error:',err);
   }finally{
     _renderGuard=false;
+    try{restore();}catch(e){}
   }
 }
 
@@ -2730,6 +2758,11 @@ function _updateAssetUndoUI(){ const u=document.getElementById('btnUndoAsset'),r
 const fnA=(n,d=2)=>n===null||isNaN(n)?'—':Number(n).toLocaleString('it-IT',{minimumFractionDigits:d,maximumFractionDigits:d});
 
 function renderAsset(){
+  const _restore=preserveScroll();
+  _renderAssetBody();
+  try{_restore();}catch(e){}
+}
+function _renderAssetBody(){
   const totLordo=ASSETS.reduce((s,a)=>{const v=(a.prezzo||0)*(a.qty||0);return s+v;},0);
   const totReale=ASSETS.reduce((s,a)=>{const v=(a.prezzo||0)*(a.qty||0);const r=v*(1-(a.sval||0)/100);return s+r;},0);
   const tipi=[...new Set(ASSETS.map(a=>a.tipo).filter(Boolean))];
@@ -2957,6 +2990,11 @@ function fnLq(n,d=2){ return n===null||isNaN(n)?'—':Number(n).toLocaleString('
 function fdLq(s){ return s?new Date(s+'T00:00:00').toLocaleDateString('it-IT'):''; }
 
 function renderLiquidita(){
+  const _restore=preserveScroll();
+  _renderLiquiditaBody();
+  try{_restore();}catch(e){}
+}
+function _renderLiquiditaBody(){
   const conti = LQ.conti;
   const interessi = LQ.interessi;
   const totSaldo = conti.reduce((s,c)=>s+(c.saldo||0),0);
@@ -3734,31 +3772,7 @@ function toggleFixed(rowId){
   if(_bFixed[rowId]) delete _bFixed[rowId];
   else _bFixed[rowId]=true;
   markUnsaved();
-  // Salva quali categorie sono aperte + posizione scroll
-  const open=[];
-  document.querySelectorAll('[id^="barr_"]').forEach(arr=>{
-    if(arr.style.transform&&arr.style.transform.includes('rotate')){
-      open.push(arr.id.replace('barr_',''));
-    }
-  });
-  // Trova il contenitore scrollabile della tabella
-  const wrap=document.getElementById('budgetTableWrap');
-  const inner=wrap?wrap.querySelector('div'):null;
-  const scrollY=window.scrollY||window.pageYOffset||0;
-  const innerScroll=inner?inner.scrollTop:0;
   renderBudget();
-  // Riapri le categorie che erano aperte
-  open.forEach(secId=>{
-    const rows=document.querySelectorAll('.brow-'+secId);
-    const arr=document.getElementById('barr_'+secId);
-    rows.forEach(r=>r.style.display='table-row');
-    if(arr)arr.style.transform='rotate(90deg)';
-  });
-  // Ripristina la posizione di scroll
-  const newWrap=document.getElementById('budgetTableWrap');
-  const newInner=newWrap?newWrap.querySelector('div'):null;
-  if(newInner) newInner.scrollTop=innerScroll;
-  window.scrollTo(0,scrollY);
 }
 // Totale annuale uscite fisse / variabili
 function computeFixedTotal(){
@@ -3772,6 +3786,16 @@ function computeVarTotal(){
 
 
 function renderBudget(){
+  const _restore=preserveScroll();
+  // salva categorie aperte
+  const open=[];
+  document.querySelectorAll('[id^="barr_"]').forEach(arr=>{if(arr.style.transform&&arr.style.transform.includes('rotate'))open.push(arr.id.replace('barr_',''));});
+  _renderBudgetBody();
+  // riapri categorie
+  open.forEach(secId=>{const rows=document.querySelectorAll('.brow-'+secId);const arr=document.getElementById('barr_'+secId);rows.forEach(r=>r.style.display='table-row');if(arr)arr.style.transform='rotate(90deg)';});
+  try{_restore();}catch(e){}
+}
+function _renderBudgetBody(){
   const curMonth=new Date().getMonth();
   renderBudgetKPI(curMonth);
   renderBudgetChart();
@@ -3858,7 +3882,7 @@ function renderBudgetTable(curMonth){
             '<span class="bcell" onclick="editBCell(event,\''+r.id+'\','+i+')" style="display:inline-block;min-width:50px;padding:3px 5px;border-radius:4px;font-size:11px;cursor:pointer;text-align:right;color:'+(v?'var(--text-primary)':'var(--text-muted)')+'">'+(v!==null?'\u20ac '+fn(v,2):'\u2014')+'</span></td>').join('')+
           '<td style="text-align:right;padding:4px 8px;font-size:11px;font-weight:500">'+(ann>0?'\u20ac '+fn(ann,0):'\u2014')+'</td>'+
           '<td style="text-align:right;padding:4px 8px;font-size:11px;color:var(--text-muted)">'+(ann>0?'\u20ac '+fn(ann/12,1):'\u2014')+'</td>'+
-          '<td style="padding:4px 6px;text-align:right"><span onclick="deleteBudgetRow(\''+r.id+'\',\''+item.id+'\')" title="Elimina voce" style="cursor:pointer;font-size:11px;color:var(--red);padding:2px 4px">\u2715</span></td>'+
+          '<td style="padding:4px 6px;text-align:right;white-space:nowrap"><span onclick="showCopyMonths(\''+r.id+'\')" title="Copia importo su pi\u00f9 mesi" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 4px">\u{1F4CB}</span><span onclick="deleteBudgetRow(\''+r.id+'\',\''+item.id+'\')" title="Elimina voce" style="cursor:pointer;font-size:11px;color:var(--red);padding:2px 4px">\u2715</span></td>'+
         '</tr>');
       });
     } else if(item.type==='total_e'||item.type==='total_u'||item.type==='net'){
@@ -3892,21 +3916,93 @@ function editBCell(e, rowId, mi){
   const span=e.currentTarget;
   const cur=bget(rowId,mi);
   const inp=document.createElement('input');
-  inp.type='number'; inp.step='0.01';
+  inp.type='number'; inp.step='0.01'; inp.inputMode='decimal';
   inp.value=cur!==null?cur:'';
-  inp.style.cssText='width:70px;padding:2px 4px;font-size:11px;font-family:var(--mono);border:1px solid var(--accent);border-radius:4px;outline:none;background:var(--surface);color:var(--text-primary);text-align:right';
+  inp.style.cssText='width:64px;padding:3px 5px;font-size:11px;font-family:var(--mono);border:1.5px solid var(--accent);border-radius:4px;outline:none;background:var(--surface);color:var(--text-primary);text-align:right';
   span.replaceWith(inp);
   inp.focus(); inp.select();
   let done=false;
-  function commit(){
-    if(done)return; done=true;
-    pushBudgetHistory();
+  function saveVal(){
     const val=inp.value.trim()===''?null:parseFloat(inp.value);
+    pushBudgetHistory();
     bset(rowId,mi,isNaN(val)?null:val);
-    renderBudget();
+    // Aggiorna SOLO i totali (KPI + chart + totali sezione), senza ricostruire la tabella
+    _refreshBudgetTotals();
   }
-  inp.addEventListener('blur',commit);
-  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){commit();}if(ev.key==='Escape'){done=true;renderBudget();}});
+  function commitAndClose(){
+    if(done)return; done=true;
+    saveVal();
+    // Rimetti lo span con il nuovo valore, senza re-render completo
+    const v=bget(rowId,mi);
+    const newSpan=document.createElement('span');
+    newSpan.className='bcell';
+    newSpan.onclick=ev=>editBCell(ev,rowId,mi);
+    newSpan.style.cssText='display:inline-block;min-width:50px;padding:3px 5px;border-radius:4px;font-size:11px;cursor:pointer;text-align:right;color:'+(v?'var(--text-primary)':'var(--text-muted)');
+    newSpan.textContent=v!==null?'\u20ac '+fn(v,2):'\u2014';
+    if(inp.parentNode) inp.replaceWith(newSpan);
+  }
+  inp.addEventListener('blur',commitAndClose);
+  inp.addEventListener('keydown',ev=>{
+    if(ev.key==='Enter'){
+      ev.preventDefault();
+      saveVal();          // salva senza chiudere
+      inp.select();       // resta sulla cella, testo selezionato per sovrascrivere
+    }
+    if(ev.key==='Escape'){ done=true; const v=cur; inp.value=v!==null?v:''; inp.blur(); }
+  });
+}
+
+// Aggiorna solo KPI, grafico e totali di sezione/riga senza ricostruire l'intera tabella (mantiene focus/scroll)
+function _refreshBudgetTotals(){
+  const curMonth=new Date().getMonth();
+  renderBudgetKPI(curMonth);
+  renderBudgetChart();
+}
+
+// ── COPIA SU MESI SELEZIONATI ──────────────────────
+function showCopyMonths(rowId){
+  const label=bLabel(rowId, rowId);
+  const cur=MONTHS.map((_,i)=>bget(rowId,i));
+  // crea overlay
+  let ov=document.getElementById('copyMonthsOverlay');
+  if(ov) ov.remove();
+  ov=document.createElement('div');
+  ov.id='copyMonthsOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;display:flex;align-items:center;justify-content:center';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const checks=MONTHS.map((m,i)=>'<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 8px;border:1px solid var(--border);border-radius:6px"><input type="checkbox" class="cm-month" data-mi="'+i+'" style="cursor:pointer">'+m+(cur[i]!==null?' <span style="color:var(--text-muted);font-size:10px">(\u20ac'+fn(cur[i],0)+')</span>':'')+'</label>').join('');
+  ov.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:440px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.15)">'+
+    '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Copia importo sui mesi</div>'+
+    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">'+label+'</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">'+
+      '<span style="font-size:13px;color:var(--text-secondary)">Importo \u20ac</span>'+
+      '<input id="cmAmount" type="number" step="0.01" inputmode="decimal" placeholder="0,00" style="flex:1;padding:8px 10px;border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-family:var(--mono);outline:none;background:var(--surface);color:var(--text-primary);text-align:right">'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+      '<button onclick="_cmSelectAll(true)" class="btn-bk" style="flex:1;font-size:11px">Seleziona tutti</button>'+
+      '<button onclick="_cmSelectAll(false)" class="btn-bk" style="flex:1;font-size:11px">Deseleziona tutti</button>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:18px">'+checks+'</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+      '<button onclick="document.getElementById(\'copyMonthsOverlay\').remove()" class="btn-bk">Annulla</button>'+
+      '<button onclick="_cmApply(\''+rowId+'\')" class="btn-bk" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600">Applica</button>'+
+    '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(()=>{const a=document.getElementById('cmAmount');if(a)a.focus();},50);
+}
+function _cmSelectAll(state){
+  document.querySelectorAll('.cm-month').forEach(c=>c.checked=state);
+}
+function _cmApply(rowId){
+  const amt=document.getElementById('cmAmount').value.trim();
+  const val=amt===''?null:parseFloat(amt);
+  const selected=[...document.querySelectorAll('.cm-month')].filter(c=>c.checked).map(c=>parseInt(c.dataset.mi));
+  if(selected.length===0){showToast('Seleziona almeno un mese','err');return;}
+  pushBudgetHistory();
+  selected.forEach(mi=>bset(rowId,mi,isNaN(val)?null:val));
+  document.getElementById('copyMonthsOverlay').remove();
+  renderBudget();
+  showToast('\u2713 Importo copiato su '+selected.length+' mesi','ok');
 }
 
 function editSectionLabel(id){
